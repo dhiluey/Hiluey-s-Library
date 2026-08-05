@@ -255,10 +255,30 @@
   @media (hover:none){.lixo{opacity:.55}}
 
   /* ---------- alternância de vista ---------- */
+  body[data-vista="boas-vindas"] .estante,
+  body[data-vista="boas-vindas"] .stats,
+  body[data-vista="boas-vindas"] .controles,
+  body[data-vista="boas-vindas"] .conta,
+  body[data-vista="boas-vindas"] .fab,
   body[data-vista="estante"] .estante,
   body[data-vista="estante"] .fab{display:none}
   body[data-vista="livro"] .stats,
   body[data-vista="livro"] .controles{display:none}
+
+  .acolhida{padding:52px 24px;max-width:420px;margin:0 auto;text-align:center}
+  .acolhida .frase{
+    font-family:var(--serif);font-size:23px;line-height:1.3;font-style:italic;margin:0 0 14px;
+  }
+  .acolhida .corrido{font-size:14.5px;color:var(--tinta-suave);margin:0 0 30px;line-height:1.6}
+  .acolhida .principal{
+    width:100%;padding:16px;border-radius:3px;background:var(--tinta);color:var(--papel-alto);
+    font-size:15px;font-weight:500;
+  }
+  .acolhida .discreto{
+    margin-top:18px;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--tinta-suave);border-bottom:1px solid var(--regua);
+    padding-bottom:3px;
+  }
 
   /* ---------- vazio ---------- */
   .vazio{padding:56px 20px;text-align:center;color:var(--tinta-suave)}
@@ -435,6 +455,9 @@ let msalApp = null, conta = null, envio = null;
 let sinc = { estado: 'desligado', quando: 0, erro: '' };
 
 const aqui = () => location.href.split('#')[0].split('?')[0];
+const JA_ENTROU = 'hl-ja-entrou', SEM_CONTA = 'hl-sem-conta', PENDENTE = 'hl-pendente';
+const querBoasVindas = () => !conta && !localStorage.getItem(JA_ENTROU)
+  && !localStorage.getItem(SEM_CONTA) && !dados.livros.length;
 
 async function iniciarNuvem(){
   if(!window.msal) return;
@@ -449,6 +472,7 @@ async function iniciarNuvem(){
     conta = msalApp.getActiveAccount() || msalApp.getAllAccounts()[0] || null;
     if(!conta) return;
     msalApp.setActiveAccount(conta);
+    localStorage.setItem(JA_ENTROU, '1');
     sinc = { estado: 'sincronizando', quando: 0, erro: '' };
     pintarNome();
     await puxar();
@@ -468,6 +492,7 @@ async function entrar(){
   await msalApp.loginRedirect({ scopes: ESCOPOS, redirectUri: aqui() });
 }
 async function sair(){
+  localStorage.removeItem(JA_ENTROU);
   await msalApp.logoutRedirect({ postLogoutRedirectUri: aqui() });
 }
 
@@ -528,6 +553,11 @@ async function puxar(){
 
 async function empurrar(){
   if(!conta) return;
+  if(!navigator.onLine){
+    sinc = { estado: 'pendente', quando: sinc.quando, erro: '' };
+    pintarNome();
+    return;
+  }
   sinc = { estado: 'sincronizando', quando: sinc.quando, erro: '' };
   pintarNome();
   const corpo = JSON.stringify({ ...dados, capas, atualizadoEm: Date.now() });
@@ -540,6 +570,7 @@ async function empurrar(){
       r = await fetch(ARQUIVO, { method: 'PUT', headers: { ...cab, 'Content-Type': 'application/json' }, body: corpo });
     }
     if(!r.ok) throw new Error('HTTP ' + r.status);
+    localStorage.removeItem(PENDENTE);
     const agora = Date.now();
     localStorage.setItem('margem-ultimo-backup', String(agora));
     sinc = { estado: 'ok', quando: agora, erro: '' };
@@ -551,12 +582,21 @@ async function empurrar(){
 }
 
 function agendarEnvio(){
+  localStorage.setItem(PENDENTE, '1');   // gravado antes de qualquer envio
   if(!conta) return;
   clearTimeout(envio);
   sinc = { estado: 'pendente', quando: sinc.quando, erro: '' };
   pintarNome();
   envio = setTimeout(empurrar, 2500);
 }
+
+// tenta de novo quando a internet volta ou quando o app é reaberto
+function talvezEnviar(){
+  if(!conta || !navigator.onLine) return;
+  if(localStorage.getItem(PENDENTE)) empurrar();
+}
+window.addEventListener('online', talvezEnviar);
+document.addEventListener('visibilitychange', () => { if(!document.hidden) talvezEnviar(); });
 
 function tocar(livro){
   if(livro) livro.atualizadoEm = Date.now();
@@ -669,6 +709,19 @@ function desenhar(){
       }<span class="rotulo">${esc(partesTitulo(l.titulo).principal)}</span></button>`).join('');
 
   const palco = document.getElementById('palco');
+
+  if(querBoasVindas()){
+    document.body.dataset.vista = 'boas-vindas';
+    palco.innerHTML = `
+      <div class="acolhida">
+        <p class="frase">Um caderno de citações que não se perde.</p>
+        <p class="corrido">Entre com a conta Microsoft e cada trecho que você guardar é salvo sozinho no seu OneDrive. Trocando de aparelho, a biblioteca vai junto.</p>
+        <button class="principal" id="btnEntrar">Entrar com a conta Microsoft</button>
+        <button class="discreto" id="btnSemConta">Usar só neste aparelho</button>
+      </div>`;
+    return;
+  }
+
   const livro = livroAtual();
   if(!livro || busca.trim()) vista = 'estante';
   document.body.dataset.vista = vista;
@@ -768,6 +821,8 @@ document.addEventListener('click', async e => {
   if(t.id === 'btnNova'){ folhaCitacao(); return; }
   if(t.id === 'btnBackup'){ backup(); return; }
   if(t.id === 'btnConta'){ folhaConta(); return; }
+  if(t.id === 'btnEntrar'){ entrar(); return; }
+  if(t.id === 'btnSemConta'){ localStorage.setItem(SEM_CONTA, '1'); desenhar(); return; }
   if(t.dataset.estado){ const l = livroAtual(); l.estado = t.dataset.estado; tocar(l); await salvar(); desenhar(); return; }
 
   const acao = t.dataset.acao;
@@ -1107,7 +1162,7 @@ function pintarNome(){
 function estadoSinc(){
   if(!conta) return 'Os dados estão só neste aparelho.';
   if(sinc.estado === 'erro') return 'Falha ao sincronizar: ' + esc(sinc.erro);
-  if(sinc.estado === 'pendente') return 'Alterações a enviar…';
+  if(sinc.estado === 'pendente') return navigator.onLine ? 'Alterações a enviar…' : 'Sem internet. As alterações sobem quando a conexão voltar.';
   if(sinc.estado === 'sincronizando') return 'Sincronizando…';
   if(sinc.quando) return 'Salvo no OneDrive às ' + new Date(sinc.quando).toLocaleTimeString('pt-BR').slice(0,5) + '.';
   return 'Conectado ao OneDrive.';
@@ -1226,6 +1281,12 @@ document.getElementById('ordem').addEventListener('change', e => {
 });
 
 /* ---------------- início ---------------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  });
+}
+
 (async () => {
   try{ if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
   await carregar();
