@@ -22,7 +22,7 @@
 </head>
 <body>
 <h1>Teste de login e OneDrive</h1>
-<p class="sub">Seis verificações. Se todas passarem, a sincronização pode ser escrita.</p>
+<p class="sub">Sete verificações. Se todas passarem, a sincronização pode ser escrita.</p>
 
 <div id="lista"></div>
 <div id="acoes"></div>
@@ -101,19 +101,39 @@ const erro = e => (e && (e.errorMessage || e.message)) ? String(e.errorMessage |
     passo('Nome puxado da conta', !!d.displayName, d.displayName ? `<code>${d.displayName}</code>` : erro(d.error && d.error.message));
   }catch(e){ passo('Nome puxado da conta', false, erro(e)); }
 
-  const conteudo = JSON.stringify({ teste: true, quando: new Date().toISOString() });
+  // a pasta do app só passa a existir depois de ser pedida uma vez
   try{
+    const r = await fetch('https://graph.microsoft.com/v1.0/me/drive/special/approot', { headers: cab });
+    const d = await r.json();
+    passo('Pasta do app no OneDrive', r.ok, r.ok ? `<code>${d.name}</code>` : `${r.status} — ${erro(d.error && d.error.message)}`);
+  }catch(e){ passo('Pasta do app no OneDrive', false, erro(e)); }
+
+  const conteudo = JSON.stringify({ teste: true, quando: new Date().toISOString() });
+  async function gravar(){
     const r = await fetch('https://graph.microsoft.com/v1.0/me/drive/special/approot:/teste.json:/content', {
       method: 'PUT', headers: { ...cab, 'Content-Type': 'application/json' }, body: conteudo
     });
-    const d = await r.json();
-    passo('Arquivo gravado no OneDrive', r.ok, r.ok ? `<code>${d.name}</code>, ${d.size} bytes` : erro(d.error && d.error.message));
+    return { r, d: await r.json().catch(() => ({})) };
+  }
+
+  try{
+    let { r, d } = await gravar();
+    let nota = '';
+    if(!r.ok){
+      nota = `1ª tentativa: ${r.status} ${erro(d.error && d.error.message)} · `;
+      await new Promise(res => setTimeout(res, 1200));
+      ({ r, d } = await gravar());
+    }
+    passo('Arquivo gravado no OneDrive', r.ok,
+      nota + (r.ok ? `<code>${d.name}</code>, ${d.size} bytes` : `${r.status} — ${erro(d.error && d.error.message)}`));
   }catch(e){ passo('Arquivo gravado no OneDrive', false, erro(e)); }
 
   try{
     const r = await fetch('https://graph.microsoft.com/v1.0/me/drive/special/approot:/teste.json:/content', { headers: cab });
     const t = await r.text();
-    passo('Arquivo lido de volta', r.ok && t.includes('quando'), r.ok ? `<code>${t.slice(0,80)}</code>` : 'falhou na leitura');
+    const igual = t === conteudo;
+    passo('Arquivo lido de volta', r.ok && igual,
+      r.ok ? (igual ? 'confere com o que acabou de ser gravado' : `leu, mas de uma gravação anterior: <code>${t.slice(0,70)}</code>`) : `${r.status}`);
   }catch(e){ passo('Arquivo lido de volta', false, erro(e)); }
 
   const sair = document.createElement('button');
