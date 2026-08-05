@@ -98,6 +98,22 @@
     font-size:12.5px;color:var(--tinta-suave);background:var(--papel-alto);
   }
   .filtros button[aria-pressed="true"]{border-color:var(--tinta);color:var(--tinta);background:var(--papel)}
+  .modo{
+    padding:5px 11px;border:1px solid var(--regua);border-radius:999px;
+    font-size:12.5px;color:var(--tinta-suave);background:var(--papel-alto);flex:0 0 auto;
+  }
+  .linhas{padding:6px 20px 0}
+  .linha{
+    display:grid;grid-template-columns:14px 1fr auto;gap:12px;align-items:center;
+    width:100%;text-align:left;padding:13px 0;border-bottom:1px solid var(--regua);
+  }
+  .linha .nome{overflow:hidden}
+  .linha .t{display:block;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .linha .a{
+    display:block;font-size:12.5px;color:var(--tinta-suave);margin-top:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .linha .n{font-family:var(--mono);font-size:11px;color:var(--tinta-suave)}
   #ordem{
     padding:4px 6px;border:1px solid var(--regua);border-radius:3px;
     background:var(--papel-alto);color:var(--tinta-suave);font-family:var(--sans);
@@ -222,10 +238,6 @@
     display:block;font-family:var(--mono);font-size:10px;color:var(--tinta-suave);
     margin-top:2px;
   }
-  .tile.novo .arte{
-    background:none;border:1px dashed var(--regua);box-shadow:none;
-    align-items:center;justify-content:center;color:var(--tinta-suave);font-size:22px;
-  }
 
   /* ---------- citações ---------- */
   .rolo{padding:4px 20px 0;--margem-col:56px}
@@ -256,8 +268,7 @@
   body[data-vista="boas-vindas"] .controles,
   body[data-vista="boas-vindas"] .conta,
   body[data-vista="boas-vindas"] .fab,
-  body[data-vista="estante"] .estante,
-  body[data-vista="estante"] .fab{display:none}
+  body[data-vista="estante"] .estante{display:none}
   body[data-vista="livro"] .stats,
   body[data-vista="livro"] .controles{display:none}
 
@@ -370,6 +381,7 @@
   <input type="search" id="busca" placeholder="Buscar livro ou citação" autocomplete="off">
   <div class="linha-controles">
     <div class="filtros" id="filtros"></div>
+    <button id="btnModo" class="modo"></button>
     <select id="ordem" aria-label="Ordenar por">
       <option value="estado">Por estado</option>
       <option value="titulo">Título A–Z</option>
@@ -624,6 +636,7 @@ function glifo(estado, claro){
 }
 const FILTROS = [['todos','Todos'],['lendo','Lendo'],['a-ler','A ler'],['lido','Lido']];
 let filtro = 'todos', ordem = 'estado', busca = '';
+let modo = localStorage.getItem('hl-modo') || 'grade';
 const dobrar = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 function realce(texto, termo){
   const base = esc(texto);
@@ -654,10 +667,31 @@ function pintarStats(){
   dados.livros.forEach(l => { c[l.estado||'a-ler']++; citacoes += l.quotes.length; });
   const el = document.getElementById('stats');
   if(!dados.livros.length){ el.innerHTML = ''; return; }
-  el.innerHTML = `<span><b>${c.lendo}</b> lendo</span><span><b>${c['a-ler']}</b> a ler</span>` +
+  el.innerHTML = `<span><b>${dados.livros.length}</b> ${dados.livros.length===1?'livro':'livros'}</span>` +
+    `<span><b>${c.lendo}</b> lendo</span><span><b>${c['a-ler']}</b> a ler</span>` +
     `<span><b>${c.lido}</b> ${c.lido===1?'lido':'lidos'}</span>` +
     `<span><b>${citacoes}</b> ${citacoes===1?'citação':'citações'}</span>`;
 }
+
+function pintarModo(){
+  document.getElementById('btnModo').textContent = modo === 'grade' ? 'Lista' : 'Capas';
+}
+
+function linha(l){
+  const t = partesTitulo(l.titulo);
+  return `<button class="linha" data-abrir="${l.id}">
+    ${glifo(l.estado || 'a-ler')}
+    <span class="nome">
+      <span class="t">${esc(t.serie ? t.serie + ': ' + t.principal : t.principal)}</span>
+      ${l.autor ? `<span class="a">${esc(l.autor)}</span>` : ''}
+    </span>
+    <span class="n">${l.quotes.length}</span>
+  </button>`;
+}
+
+const estanteHTML = lista => modo === 'lista'
+  ? `<div class="linhas">${lista.map(linha).join('')}</div>`
+  : `<div class="grade">${lista.map(tile).join('')}</div>`;
 
 function pintarFiltros(){
   document.getElementById('filtros').innerHTML = FILTROS.map(([v,r]) =>
@@ -712,6 +746,7 @@ function desenhar(){
   pintarNome();
   pintarStats();
   pintarFiltros();
+  pintarModo();
   pintarAviso();
 
   const lista = estanteOrdenada();
@@ -741,6 +776,9 @@ function desenhar(){
   const livro = livroAtual();
   if(!livro || busca.trim()) vista = 'estante';
   document.body.dataset.vista = vista;
+  const fab = document.getElementById('btnNova');
+  fab.textContent = vista === 'livro' ? 'Nova citação' : 'Novo livro';
+  fab.dataset.papel = vista === 'livro' ? 'citacao' : 'livro';
 
   /* ---- busca ---- */
   if(busca.trim()){
@@ -750,7 +788,7 @@ function desenhar(){
         <h1>Resultados</h1>
         <p class="autor">${lista.length} ${lista.length===1?'livro':'livros'} · ${trechos.length} ${trechos.length===1?'citação':'citações'}</p>
       </section>
-      ${lista.length ? `<div class="grade">${lista.map(tile).join('')}</div>` : ''}
+      ${lista.length ? estanteHTML(lista) : ''}
       ${trechos.length ? `<div class="rolo" style="padding-top:0">
         <div class="grupo">Citações</div>
         ${trechos.slice(0,80).map(h => `
@@ -769,14 +807,11 @@ function desenhar(){
   if(vista === 'estante'){
     palco.innerHTML = dados.livros.length
       ? (lista.length
-          ? `<div class="grade">${lista.map(tile).join('')}
-              <button class="tile novo" id="btnNovoLivro"><span class="arte">+</span>
-              <span class="tit">Novo livro</span></button></div>`
+          ? estanteHTML(lista)
           : `<div class="vazio"><p>Nenhum livro neste filtro.</p>
               <small>Troque o filtro acima para ver os outros.</small></div>`)
       : `<div class="vazio"><p>Nenhum livro por aqui ainda.</p>
-          <small>Cadastre um livro para começar a guardar trechos.</small>
-          <div style="margin-top:18px"><button class="lombada novo" id="btnNovoLivro">+ livro</button></div></div>`;
+          <small>Toque em Novo livro, aqui embaixo, para começar.</small></div>`;
     return;
   }
 
@@ -833,10 +868,14 @@ document.addEventListener('click', async e => {
     busca = ''; document.getElementById('busca').value = ''; vista = 'livro';
     await salvar(); desenhar(); window.scrollTo(0,0); return;
   }
-  if(t.id === 'btnNovoLivro'){ folhaLivro(); return; }
-  if(t.id === 'btnNova'){ folhaCitacao(); return; }
+  if(t.id === 'btnNova'){ t.dataset.papel === 'livro' ? folhaLivro() : folhaCitacao(); return; }
   if(t.id === 'btnBackup'){ backup(); return; }
   if(t.id === 'btnConta'){ folhaConta(); return; }
+  if(t.id === 'btnModo'){
+    modo = modo === 'grade' ? 'lista' : 'grade';
+    localStorage.setItem('hl-modo', modo);
+    desenhar(); return;
+  }
   if(t.id === 'btnEntrar'){ entrar(); return; }
   if(t.id === 'btnSemConta'){ localStorage.setItem(SEM_CONTA, '1'); desenhar(); return; }
   if(t.dataset.estado){ const l = livroAtual(); l.estado = t.dataset.estado; tocar(l); await salvar(); desenhar(); return; }
