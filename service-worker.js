@@ -2,11 +2,14 @@
    Guarda o app no aparelho. Os dados nunca passam por aqui: ficam no
    armazenamento do navegador e sobem para o OneDrive quando há conexão. */
 
-const CACHE = 'hiluey-library-v1';
+const CACHE = 'hiluey-library-v2';
 
 const ESSENCIAIS = [
   './',
   './index.html',
+  './manifest.json',
+  './apple-touch-icon.png',
+  './icon-192.png',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   'https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/lib/msal-browser.min.js'
 ];
