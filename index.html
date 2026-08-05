@@ -195,6 +195,13 @@
   .resultado img{width:32px;height:46px;object-fit:cover;border-radius:1px;background:var(--regua);flex:0 0 auto}
   .resultado .tit{font-size:14.5px;line-height:1.25;display:block}
   .resultado .aut{font-size:12.5px;color:var(--tinta-suave);display:block;margin-top:2px}
+  .mais{
+    display:block;width:100%;margin-top:10px;padding:11px;
+    border:1px dashed var(--regua);border-radius:3px;
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--caneta);
+  }
+  .mais:hover{border-color:var(--caneta)}
   .linha-busca{display:flex;gap:8px;align-items:stretch}
   .linha-busca input{flex:1}
   .linha-busca button{
@@ -1083,40 +1090,53 @@ async function buscarLivro(){
 
   // mantém a ordem de relevância de cada fonte; a mistura já ficou com a versão que tem capa
   const todos = Array.from(vistos.values());
-  const itens = todos.slice(0, 16);
 
-  if(!itens.length){
+  if(!todos.length){
     st.className = 'status erro';
     st.textContent = (falharam.length ? falharam.join(' · ') : 'Nada encontrado') + '. Preencha à mão e fotografe a capa.';
     pintarCapa();
     return;
   }
 
-  st.className = 'status';
-  st.textContent = [responderam.join(' · '), falharam.join(' · ')].filter(Boolean).join(' — ')
-    + (todos.length > itens.length ? ` · mostrando ${itens.length} de ${todos.length}` : '');
+  const LOTE = 16;
+  let mostrando = LOTE;
 
-  res.innerHTML = `<div class="resultados">${itens.map((v, ix) => `
-    <button class="resultado" data-ix="${ix}">
-      <img src="${esc(v.capa)}" alt="">
-      <span><span class="tit">${esc(v.titulo)}</span>
-      <span class="aut">${esc([v.autor, v.ano].filter(Boolean).join(' · '))}</span></span>
-    </button>`).join('')}</div>`;
+  function pintarAchados(){
+    const itens = todos.slice(0, mostrando);
+    st.className = 'status';
+    st.textContent = [responderam.join(' · '), falharam.join(' · ')].filter(Boolean).join(' — ')
+      + (todos.length > itens.length ? ` · mostrando ${itens.length} de ${todos.length}` : '');
 
-  res.querySelectorAll('.resultado').forEach(b => {
-    b.onclick = async () => {
-      const v = itens[parseInt(b.dataset.ix, 10)];
-      document.getElementById('ftit').value = v.titulo;
-      document.getElementById('faut').value = v.autor;
-      res.innerHTML = '';
-      if(v.capa){
-        st.textContent = 'Baixando a capa…';
-        capaPendente = await baixarImagem(v.capa);
-      }
-      st.textContent = '';
-      pintarCapa();
-    };
-  });
+    res.innerHTML = `<div class="resultados">${itens.map((v, ix) => `
+      <button class="resultado" data-ix="${ix}">
+        <img src="${esc(v.capa)}" alt="">
+        <span><span class="tit">${esc(v.titulo)}</span>
+        <span class="aut">${esc([v.autor, v.ano].filter(Boolean).join(' · '))}</span></span>
+      </button>`).join('')}</div>
+      ${todos.length > itens.length
+        ? `<button class="mais" id="fmais">Mostrar mais ${Math.min(LOTE, todos.length - itens.length)}</button>`
+        : ''}`;
+
+    res.querySelectorAll('.resultado').forEach(b => {
+      b.onclick = async () => {
+        const v = todos[parseInt(b.dataset.ix, 10)];
+        document.getElementById('ftit').value = v.titulo;
+        document.getElementById('faut').value = v.autor;
+        res.innerHTML = '';
+        if(v.capa){
+          st.textContent = 'Baixando a capa…';
+          capaPendente = await baixarImagem(v.capa);
+        }
+        st.textContent = '';
+        pintarCapa();
+      };
+    });
+
+    const mais = document.getElementById('fmais');
+    if(mais) mais.onclick = () => { mostrando += LOTE; pintarAchados(); };
+  }
+
+  pintarAchados();
 }
 
 async function baixarImagem(url){
