@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Teste de login — Hiluey's Library</title>
+<style>
+  body{font-family:system-ui,-apple-system,sans-serif;background:#F1F2EE;color:#1A1D1A;
+    padding:24px 20px calc(24px + env(safe-area-inset-bottom));line-height:1.55;margin:0}
+  h1{font-size:19px;margin:0 0 4px}
+  p.sub{color:#5A6160;font-size:13.5px;margin:0 0 20px}
+  .passo{padding:12px 0;border-bottom:1px solid #D5D8D1;font-size:14.5px}
+  .passo b{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#5A6160;margin-bottom:3px}
+  .ok{color:#1F6B3B}
+  .nao{color:#8A3A32}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:12px;word-break:break-all;background:#E7E8E3;padding:1px 4px;border-radius:2px}
+  button{font:inherit;margin-top:22px;padding:13px 20px;border:none;border-radius:3px;
+    background:#0C1F3A;color:#fff;font-size:15px;cursor:pointer}
+  button.claro{background:none;color:#0C1F3A;border:1px solid #D5D8D1;margin-left:8px}
+</style>
+</head>
+<body>
+<h1>Teste de login e OneDrive</h1>
+<p class="sub">Seis verificações. Se todas passarem, a sincronização pode ser escrita.</p>
+
+<div id="lista"></div>
+<div id="acoes"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/lib/msal-browser.min.js"></script>
+<script>
+const CLIENT_ID = '0fcbf4d6-c065-4c91-bc54-56f3e358f1a6';
+const ESCOPOS = ['User.Read', 'Files.ReadWrite.AppFolder'];
+const REDIRECT = location.href.split('#')[0].split('?')[0];
+
+const lista = document.getElementById('lista');
+function passo(rotulo, ok, detalhe){
+  const d = document.createElement('div');
+  d.className = 'passo';
+  d.innerHTML = `<b>${rotulo}</b><span class="${ok ? 'ok' : 'nao'}">${ok ? 'sim' : 'não'}</span>` +
+    (detalhe ? ` — ${detalhe}` : '');
+  lista.appendChild(d);
+  return ok;
+}
+const erro = e => (e && (e.errorMessage || e.message)) ? String(e.errorMessage || e.message).slice(0,180) : String(e);
+
+(async () => {
+  passo('Endereço desta página', true, `<code>${REDIRECT}</code> — precisa estar registrado como URI de redirecionamento SPA`);
+
+  if(!window.msal){
+    passo('Biblioteca MSAL carregada', false, 'o script não chegou');
+    return;
+  }
+  passo('Biblioteca MSAL carregada', true);
+
+  const app = new msal.PublicClientApplication({
+    auth: { clientId: CLIENT_ID, authority: 'https://login.microsoftonline.com/common', redirectUri: REDIRECT },
+    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false }
+  });
+
+  try{
+    await app.initialize();
+    const resp = await app.handleRedirectPromise();
+    if(resp && resp.account) app.setActiveAccount(resp.account);
+  }catch(e){
+    passo('Retorno do login', false, erro(e));
+    return;
+  }
+
+  let conta = app.getActiveAccount() || app.getAllAccounts()[0];
+  if(!conta){
+    passo('Sessão iniciada', false, 'ainda não entrou');
+    const b = document.createElement('button');
+    b.textContent = 'Entrar com a conta Microsoft';
+    b.onclick = () => app.loginRedirect({ scopes: ESCOPOS, redirectUri: REDIRECT });
+    document.getElementById('acoes').appendChild(b);
+    return;
+  }
+  app.setActiveAccount(conta);
+  passo('Sessão iniciada', true, `<code>${conta.username}</code>`);
+
+  let token;
+  try{
+    const r = await app.acquireTokenSilent({ scopes: ESCOPOS, account: conta });
+    token = r.accessToken;
+    passo('Token obtido em silêncio', true, 'renovação sem tela de login funcionou');
+  }catch(e){
+    passo('Token obtido em silêncio', false, erro(e));
+    const b = document.createElement('button');
+    b.textContent = 'Renovar acesso';
+    b.onclick = () => app.acquireTokenRedirect({ scopes: ESCOPOS, redirectUri: REDIRECT });
+    document.getElementById('acoes').appendChild(b);
+    return;
+  }
+
+  const cab = { Authorization: 'Bearer ' + token };
+
+  try{
+    const r = await fetch('https://graph.microsoft.com/v1.0/me', { headers: cab });
+    const d = await r.json();
+    passo('Nome puxado da conta', !!d.displayName, d.displayName ? `<code>${d.displayName}</code>` : erro(d.error && d.error.message));
+  }catch(e){ passo('Nome puxado da conta', false, erro(e)); }
+
+  const conteudo = JSON.stringify({ teste: true, quando: new Date().toISOString() });
+  try{
+    const r = await fetch('https://graph.microsoft.com/v1.0/me/drive/special/approot:/teste.json:/content', {
+      method: 'PUT', headers: { ...cab, 'Content-Type': 'application/json' }, body: conteudo
+    });
+    const d = await r.json();
+    passo('Arquivo gravado no OneDrive', r.ok, r.ok ? `<code>${d.name}</code>, ${d.size} bytes` : erro(d.error && d.error.message));
+  }catch(e){ passo('Arquivo gravado no OneDrive', false, erro(e)); }
+
+  try{
+    const r = await fetch('https://graph.microsoft.com/v1.0/me/drive/special/approot:/teste.json:/content', { headers: cab });
+    const t = await r.text();
+    passo('Arquivo lido de volta', r.ok && t.includes('quando'), r.ok ? `<code>${t.slice(0,80)}</code>` : 'falhou na leitura');
+  }catch(e){ passo('Arquivo lido de volta', false, erro(e)); }
+
+  const sair = document.createElement('button');
+  sair.className = 'claro';
+  sair.textContent = 'Sair';
+  sair.onclick = () => app.logoutRedirect({ postLogoutRedirectUri: REDIRECT });
+  document.getElementById('acoes').appendChild(sair);
+})().catch(e => passo('Erro inesperado', false, erro(e)));
+</script>
+</body>
+</html>
