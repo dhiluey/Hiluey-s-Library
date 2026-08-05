@@ -658,6 +658,7 @@ function glifo(status, claro){
     stroke-dasharray="1.6 1.9" stroke-linecap="round"/></svg>`;
 }
 const FILTROS = [['todos','Todos'],['lendo','Lendo'],['a-ler','A ler'],['lido','Lido']];
+const pesoStatus = e => ({ 'lendo':0, 'a-ler':1, 'lido':2 }[e] ?? 1);
 let filtro = 'todos', ordem = 'status', busca = '';
 let modo = localStorage.getItem('hl-modo') || 'grade';
 const dobrar = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
