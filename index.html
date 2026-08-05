@@ -172,21 +172,21 @@
   .acoes button:hover{border-bottom-color:var(--caneta)}
   .acoes button.perigo{color:#8A3A32}
 
-  /* ---------- capas e estados ---------- */
+  /* ---------- capas e status ---------- */
   .gl{width:12px;height:12px;flex:0 0 auto;display:block}
   .gl.claro{filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
-  .estados{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
-  .estados button{
+  .status-linha{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .status-linha button{
     display:flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid var(--regua);
     border-radius:999px;font-size:13px;color:var(--tinta-suave);background:var(--papel-alto);
   }
-  .estados button[aria-pressed="true"]{border-color:var(--tinta);color:var(--tinta)}
+  .status-linha button[aria-pressed="true"]{border-color:var(--tinta);color:var(--tinta)}
   .ficha-topo{display:flex;gap:18px;align-items:flex-start}
   .ficha-topo .capa{
     width:78px;flex:0 0 auto;border-radius:2px;
     box-shadow:0 3px 12px rgba(26,29,26,.24);display:block;
   }
-  .resultados{margin-top:14px;display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto}
+  .resultados{margin-top:14px;display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .resultado{
     display:flex;gap:12px;align-items:center;text-align:left;width:100%;
     padding:9px 8px;border-radius:3px;
@@ -342,6 +342,20 @@
     margin-top:10px;min-height:16px;
   }
   .status.erro{color:#8A3A32}
+  .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+  .trio button{
+    display:flex;flex-direction:column;align-items:center;gap:7px;
+    padding:14px 6px;border:1px solid var(--regua);border-radius:7px;
+    font-size:12.5px;color:var(--tinta);background:var(--papel-alto);transition:.15s;
+  }
+  .trio button:hover{border-color:var(--tinta)}
+  .trio button:active{transform:scale(.97)}
+  .trio button[aria-pressed="true"]{border-color:var(--tinta);box-shadow:inset 0 -3px 0 var(--grifo)}
+  .cancelar.larga{
+    display:block;width:100%;margin-top:16px;padding:12px;border:none;
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--tinta-suave);
+  }
   .rodape{display:flex;gap:10px;margin-top:24px}
   .rodape button{flex:1;padding:14px;border-radius:3px;font-size:15px}
   .salvar{background:var(--tinta);color:var(--papel-alto);font-weight:500}
@@ -386,7 +400,7 @@
     <div class="filtros" id="filtros"></div>
     <button id="btnModo" class="modo"></button>
     <select id="ordem" aria-label="Ordenar por">
-      <option value="estado">Por estado</option>
+      <option value="status">Por status</option>
       <option value="titulo">Título A–Z</option>
       <option value="autor">Autor A–Z</option>
       <option value="citacoes">Mais citações</option>
@@ -431,7 +445,10 @@ async function carregar(){
   }catch(e){ /* primeira execução */ }
   if(!dados.livros) dados.livros = [];
   if(!dados.atual && dados.livros[0]) dados.atual = dados.livros[0].id;
-  dados.livros.forEach(l => { if(!l.estado) l.estado = 'lendo'; });
+  dados.livros.forEach(l => {
+    if(l.estado && !l.status){ l.status = l.estado; delete l.estado; }   // nome antigo
+    if(!l.status) l.status = 'lendo';
+  });
   try{
     for(let i = 0; i < localStorage.length; i++){
       const k = localStorage.key(i);
@@ -532,7 +549,10 @@ function mesclar(remoto){
 
   dados.removidos = apagados;
   dados.livros = Array.from(mapa.values());
-  dados.livros.forEach(l => { if(!l.estado) l.estado = 'lendo'; });
+  dados.livros.forEach(l => {
+    if(l.estado && !l.status){ l.status = l.estado; delete l.estado; }   // nome antigo
+    if(!l.status) l.status = 'lendo';
+  });
   if(!dados.biblioteca && remoto.biblioteca) dados.biblioteca = remoto.biblioteca;
   if(!dados.atual || !dados.livros.some(l => l.id === dados.atual))
     dados.atual = dados.livros[0] && dados.livros[0].id;
@@ -618,48 +638,56 @@ function tocar(livro){
 /* ---------------- utilidades ---------------- */
 const id = () => Math.random().toString(36).slice(2,10);
 const livroAtual = () => dados.livros.find(l => l.id === dados.atual);
-const ESTADOS = [['lendo','Lendo'],['a-ler','A ler'],['lido','Lido']];
+const STATUS = [['lendo','Lendo'],['a-ler','A ler'],['lido','Lido']];
 
 // formas diferentes, não só cores: a 12px a cor sozinha não distingue
-function glifo(estado, claro){
+function glifo(status, claro){
   const anel = claro ? '#fff' : 'var(--tinta-suave)';
   const cheio = claro ? '#fff' : 'var(--caneta)';
   const marca = claro ? '#0C1F3A' : '#FBFBFA';
   const meio = claro ? '#FBBF24' : '#C89A2B';
   const abre = `<svg class="gl${claro ? ' claro' : ''}" viewBox="0 0 12 12" aria-hidden="true">`;
-  if(estado === 'lido')
+  if(status === 'lido')
     return abre + `<circle cx="6" cy="6" r="5.4" fill="${cheio}"/>
       <path d="M3.5 6.2 L5.2 8 L8.6 4.3" fill="none" stroke="${marca}" stroke-width="1.5"
       stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  if(estado === 'lendo')
+  if(status === 'lendo')
     return abre + `<path d="M6 6 L6 1.4 A4.6 4.6 0 0 1 6 10.6 Z" fill="${meio}"/>
       <circle cx="6" cy="6" r="4.6" fill="none" stroke="${meio}" stroke-width="1.5"/></svg>`;
   return abre + `<circle cx="6" cy="6" r="4.6" fill="none" stroke="${anel}" stroke-width="1.5"
     stroke-dasharray="1.6 1.9" stroke-linecap="round"/></svg>`;
 }
 const FILTROS = [['todos','Todos'],['lendo','Lendo'],['a-ler','A ler'],['lido','Lido']];
-let filtro = 'todos', ordem = 'estado', busca = '';
+let filtro = 'todos', ordem = 'status', busca = '';
 let modo = localStorage.getItem('hl-modo') || 'grade';
 const dobrar = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const termos = q => dobrar(q).split(/\s+/).filter(Boolean);
+const casa = (texto, ts) => { const t = dobrar(texto); return ts.every(x => t.includes(x)); };
 function realce(texto, termo){
-  const base = esc(texto);
-  if(!termo) return base;
-  const alvo = esc(termo).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  try{ return base.replace(new RegExp(alvo,'gi'), m => '<mark>' + m + '</mark>'); }
-  catch(e){ return base; }
+  let base = esc(texto);
+  const ts = termos(termo).filter(t => t.length > 1);
+  if(!ts.length) return base;
+  ts.forEach(t => {
+    const alvo = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    try{
+      base = base.replace(new RegExp('(?<!<[^>]*)' + alvo, 'gi'), m => '<mark>' + m + '</mark>');
+    }catch(e){
+      base = base.replace(new RegExp(alvo, 'gi'), m => '<mark>' + m + '</mark>');
+    }
+  });
+  return base;
 }
-const pesoEstado = e => ({ 'lendo':0, 'a-ler':1, 'lido':2 }[e] ?? 1);
+
 function estanteOrdenada(){
-  const q = dobrar(busca);
-  let lista = dados.livros.filter(l => filtro === 'todos' || (l.estado||'a-ler') === filtro);
-  if(q) lista = lista.filter(l =>
-    dobrar(l.titulo).includes(q) || dobrar(l.autor).includes(q) ||
-    l.quotes.some(x => dobrar(x.texto).includes(q)));
+  const ts = termos(busca);
+  let lista = dados.livros.filter(l => filtro === 'todos' || (l.status||'a-ler') === filtro);
+  if(ts.length) lista = lista.filter(l =>
+    casa(l.titulo + ' ' + (l.autor||''), ts) || l.quotes.some(x => casa(x.texto, ts)));
   const cmp = {
     titulo: (a,b) => a.titulo.localeCompare(b.titulo,'pt-BR'),
     autor: (a,b) => (a.autor||'').localeCompare(b.autor||'','pt-BR') || a.titulo.localeCompare(b.titulo,'pt-BR'),
     citacoes: (a,b) => b.quotes.length - a.quotes.length || a.titulo.localeCompare(b.titulo,'pt-BR'),
-    estado: (a,b) => pesoEstado(a.estado) - pesoEstado(b.estado) || (a.criadoEm||0) - (b.criadoEm||0)
+    status: (a,b) => pesoStatus(a.status) - pesoStatus(b.status) || (a.criadoEm||0) - (b.criadoEm||0)
   }[ordem];
   return lista.sort(cmp);
 }
@@ -667,7 +695,7 @@ function estanteOrdenada(){
 function pintarStats(){
   const c = { lendo:0, 'a-ler':0, lido:0 };
   let citacoes = 0;
-  dados.livros.forEach(l => { c[l.estado||'a-ler']++; citacoes += l.quotes.length; });
+  dados.livros.forEach(l => { c[l.status||'a-ler']++; citacoes += l.quotes.length; });
   const el = document.getElementById('stats');
   if(!dados.livros.length){ el.innerHTML = ''; return; }
   el.innerHTML = `<span><b>${dados.livros.length}</b> ${dados.livros.length===1?'livro':'livros'}</span>` +
@@ -683,7 +711,7 @@ function pintarModo(){
 function linha(l){
   const t = partesTitulo(l.titulo);
   return `<button class="linha" data-abrir="${l.id}">
-    ${glifo(l.estado || 'a-ler')}
+    ${glifo(l.status || 'a-ler')}
     <span class="nome">
       <span class="t">${esc(t.serie ? t.serie + ': ' + t.principal : t.principal)}</span>
       ${l.autor ? `<span class="a">${esc(l.autor)}</span>` : ''}
@@ -703,10 +731,11 @@ function pintarFiltros(){
 }
 
 function achados(){
-  const q = dobrar(busca);
+  const ts = termos(busca);
   const hits = [];
+  if(!ts.length) return hits;
   dados.livros.forEach(l => l.quotes.forEach(x => {
-    if(dobrar(x.texto).includes(q)) hits.push({ livro:l, q:x });
+    if(casa(x.texto, ts)) hits.push({ livro:l, q:x });
   }));
   return hits.sort((a,b) => a.livro.titulo.localeCompare(b.livro.titulo,'pt-BR')
     || numPag(a.q.pagina) - numPag(b.q.pagina));
@@ -736,7 +765,7 @@ function tile(l){
   return `<button class="tile" data-abrir="${l.id}">
     <span class="arte">
       ${capa ? `<img src="${esc(capa)}" alt="">` : `<span class="semcapa">${esc(l.titulo)}</span>`}
-      <span class="selo">${glifo(l.estado || 'a-ler', true)}</span>
+      <span class="selo">${glifo(l.status || 'a-ler', true)}</span>
     </span>
     <span class="tit">${(() => { const t = partesTitulo(l.titulo);
       return (t.serie ? `<span class="serie">${esc(t.serie)}</span>` : '') +
@@ -759,7 +788,7 @@ function desenhar(){
     `<button class="lombada" id="btnVoltar">← estante</button>` + lista.map(l =>
       `<button class="lombada" aria-pressed="${l.id===dados.atual}" data-abrir="${l.id}">${
         capas[l.id] ? `<img class="mini" src="${esc(capas[l.id])}" alt="">`
-                    : glifo(l.estado || 'a-ler')
+                    : glifo(l.status || 'a-ler')
       }<span class="rotulo">${esc(partesTitulo(l.titulo).principal)}</span></button>`).join('');
 
   const palco = document.getElementById('palco');
@@ -794,12 +823,12 @@ function desenhar(){
       ${lista.length ? estanteHTML(lista) : ''}
       ${trechos.length ? `<div class="rolo" style="padding-top:0">
         <div class="grupo">Citações</div>
-        ${trechos.slice(0,80).map(h => `
+        ${trechos.slice(0,150).map(h => `
           <button class="achado" data-ir="${h.livro.id}">
             <span class="onde">${esc(h.livro.titulo)}${h.q.pagina ? ' · p. ' + esc(h.q.pagina) : ''}</span>
             <span class="trecho">${realce(h.q.texto.length > 320 ? h.q.texto.slice(0,320) + '…' : h.q.texto, busca.trim())}</span>
           </button>`).join('')}
-        ${trechos.length > 80 ? `<div class="grupo">mostrando as 80 primeiras</div>` : ''}
+        ${trechos.length > 150 ? `<div class="grupo">mostrando as 150 primeiras</div>` : ''}
       </div>` : ''}
       ${(!lista.length && !trechos.length) ? `<div class="vazio"><p>Nada encontrado.</p>
         <small>Tente outra palavra, ou limpe a busca.</small></div>` : ''}`;
@@ -829,8 +858,8 @@ function desenhar(){
           ${livro.autor ? `<p class="autor">${esc(livro.autor)}</p>` : ''}
         </div>
       </div>
-      <div class="estados">
-        ${ESTADOS.map(([v,r]) => `<button data-estado="${v}" aria-pressed="${(livro.estado||'a-ler')===v}">
+      <div class="status-linha">
+        ${STATUS.map(([v,r]) => `<button data-status="${v}" aria-pressed="${(livro.status||'a-ler')===v}">
           ${glifo(v)}${r}</button>`).join('')}
       </div>
       <div class="acoes">
@@ -881,7 +910,7 @@ document.addEventListener('click', async e => {
   }
   if(t.id === 'btnEntrar'){ entrar(); return; }
   if(t.id === 'btnSemConta'){ localStorage.setItem(SEM_CONTA, '1'); desenhar(); return; }
-  if(t.dataset.estado){ const l = livroAtual(); l.estado = t.dataset.estado; tocar(l); await salvar(); desenhar(); return; }
+  if(t.dataset.status){ const l = livroAtual(); l.status = t.dataset.status; tocar(l); await salvar(); desenhar(); return; }
 
   const acao = t.dataset.acao;
   if(acao === 'pdf') return gerarPDF();
@@ -937,10 +966,12 @@ function folhaLivro(livro){
     <label for="faut">Autor</label>
     <input type="text" id="faut" value="${esc(livro?livro.autor:'')}" placeholder="Opcional">
     <div id="fcapa"></div>
-    <div class="rodape">
-      <button class="cancelar" id="fcancel">Cancelar</button>
-      <button class="salvar" id="fok">Salvar</button>
-    </div>`;
+    <label style="margin-top:24px">Salvar como</label>
+    <div class="trio">
+      ${STATUS.map(([v,r]) => `<button data-salvar="${v}"
+        aria-pressed="${livro ? (livro.status||'a-ler')===v : false}">${glifo(v)}<span>${r}</span></button>`).join('')}
+    </div>
+    <button class="cancelar larga" id="fcancel">Cancelar</button>`;
   document.getElementById('fundo').hidden = false;
   document.getElementById('fbusca').focus();
   document.getElementById('fcancel').onclick = fechar;
@@ -949,20 +980,29 @@ function folhaLivro(livro){
     if(e.key === 'Enter'){ e.preventDefault(); buscarLivro(); }
   });
   pintarCapa();
-  document.getElementById('fok').onclick = async () => {
+  f.querySelectorAll('[data-salvar]').forEach(b => { b.onclick = () => guardarLivro(livro, b.dataset.salvar); });
+
+  async function guardarLivro(livro, status){
     const titulo = document.getElementById('ftit').value.trim();
     if(!titulo){ document.getElementById('ftit').focus(); return; }
     const autor = document.getElementById('faut').value.trim();
     let alvo;
-    if(livro){ livro.titulo = titulo; livro.autor = autor; alvo = livro; }
-    else{
-      alvo = { id:id(), titulo, autor, quotes:[], estado:'lendo', criadoEm:Date.now() };
-      dados.livros.push(alvo); dados.atual = alvo.id; vista = 'livro';
+    if(livro){
+      livro.titulo = titulo; livro.autor = autor; livro.status = status; alvo = livro;
+    }else{
+      alvo = { id:id(), titulo, autor, quotes:[], status, criadoEm:Date.now() };
+      dados.livros.push(alvo);
+      dados.atual = alvo.id;
+      // livro em leitura abre para receber trechos; os outros voltam para a estante,
+      // que é o que serve para cadastrar vários seguidos
+      vista = (status === 'lendo') ? 'livro' : 'estante';
+      if(vista === 'estante' && filtro !== 'todos' && filtro !== status) filtro = 'todos';
     }
     tocar(alvo);
     if(capaPendente && capaPendente !== capas[alvo.id]) await salvarCapa(alvo.id, capaPendente);
     await salvar(); fechar(); desenhar();
-  };
+    if(vista === 'estante') window.scrollTo(0,0);
+  }
 }
 
 function pintarCapa(){
@@ -984,7 +1024,7 @@ function ehIsbn(t){
 async function fonteGoogle(termo){
   const isbn = ehIsbn(termo);
   const q = isbn ? 'isbn:' + isbn : termo;
-  const r = await fetch('https://www.googleapis.com/books/v1/volumes?country=BR&printType=books&maxResults=10'
+  const r = await fetch('https://www.googleapis.com/books/v1/volumes?country=BR&printType=books&maxResults=20'
     + (CHAVE_GOOGLE ? '&key=' + CHAVE_GOOGLE : '') + '&q=' + encodeURIComponent(q));
   if(!r.ok) throw new Error('google ' + r.status);
   const d = await r.json();
@@ -1003,7 +1043,7 @@ async function fonteGoogle(termo){
 async function fonteOpenLibrary(termo){
   const isbn = ehIsbn(termo);
   const q = isbn ? 'isbn:' + isbn : termo;
-  const url = 'https://openlibrary.org/search.json?limit=10&fields=title,author_name,cover_i,first_publish_year&q=' + encodeURIComponent(q);
+  const url = 'https://openlibrary.org/search.json?limit=20&fields=title,author_name,cover_i,first_publish_year&q=' + encodeURIComponent(q);
   const r = await fetch(url);
   if(!r.ok) throw new Error('openlibrary ' + r.status);
   const d = await r.json();
@@ -1040,9 +1080,9 @@ async function buscarLivro(){
     });
   });
 
-  const itens = Array.from(vistos.values())
-    .sort((a,b) => (b.capa ? 1 : 0) - (a.capa ? 1 : 0))
-    .slice(0, 8);
+  // mantém a ordem de relevância de cada fonte; a mistura já ficou com a versão que tem capa
+  const todos = Array.from(vistos.values());
+  const itens = todos.slice(0, 16);
 
   if(!itens.length){
     st.className = 'status erro';
@@ -1052,7 +1092,8 @@ async function buscarLivro(){
   }
 
   st.className = 'status';
-  st.textContent = [responderam.join(' · '), falharam.join(' · ')].filter(Boolean).join(' — ');
+  st.textContent = [responderam.join(' · '), falharam.join(' · ')].filter(Boolean).join(' — ')
+    + (todos.length > itens.length ? ` · mostrando ${itens.length} de ${todos.length}` : '');
 
   res.innerHTML = `<div class="resultados">${itens.map((v, ix) => `
     <button class="resultado" data-ix="${ix}">
@@ -1209,7 +1250,7 @@ async function secaoLivro(doc, livro, y){
     doc.text(livro.autor, L, y); y += 7;
   }
   doc.setTextColor(120); doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-  const rotulo = { lendo:'Lendo', 'a-ler':'A ler', lido:'Lido' }[livro.estado || 'a-ler'];
+  const rotulo = { lendo:'Lendo', 'a-ler':'A ler', lido:'Lido' }[livro.status || 'a-ler'];
   doc.text(`${rotulo} · ${qs.length} ${qs.length===1?'citação':'citações'}`, L, y);
   y += 5;
   doc.setDrawColor(200); doc.line(L, y, 210-R, y); y += 12;
@@ -1426,7 +1467,10 @@ async function restaurar(texto){
   const porId = new Map(dados.livros.map(l => [l.id, l]));
   d.livros.forEach(l => { l.atualizadoEm = Date.now(); porId.set(l.id, l); });
   dados.livros = Array.from(porId.values());
-  dados.livros.forEach(l => { if(!l.estado) l.estado = 'lido'; });
+  dados.livros.forEach(l => {
+    if(l.estado && !l.status){ l.status = l.estado; delete l.estado; }
+    if(!l.status) l.status = 'lido';
+  });
   if(!dados.atual || !dados.livros.some(l => l.id === dados.atual)) dados.atual = dados.livros[0] && dados.livros[0].id;
   for(const par of Object.entries(d.capas || {})) await salvarCapa(par[0], par[1]);
   await salvar();
