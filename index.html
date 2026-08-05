@@ -450,6 +450,7 @@ function apagarCapa(livroId){
 
 /* ---------------- nuvem (OneDrive) ---------------- */
 const CLIENT_ID = '0fcbf4d6-c065-4c91-bc54-56f3e358f1a6';
+const CHAVE_GOOGLE = 'AIzaSyAhR6xIQbFYY-gZ9mobl_valT0b7xE42FU';   // Books API, restrita ao domínio do site
 const ESCOPOS = ['User.Read', 'Files.ReadWrite.AppFolder'];
 const ARQUIVO = 'https://graph.microsoft.com/v1.0/me/drive/special/approot:/biblioteca.json:/content';
 const PASTA = 'https://graph.microsoft.com/v1.0/me/drive/special/approot';
@@ -928,7 +929,8 @@ function ehIsbn(t){
 async function fonteGoogle(termo){
   const isbn = ehIsbn(termo);
   const q = isbn ? 'isbn:' + isbn : termo;
-  const r = await fetch('https://www.googleapis.com/books/v1/volumes?country=BR&printType=books&maxResults=10&q=' + encodeURIComponent(q));
+  const r = await fetch('https://www.googleapis.com/books/v1/volumes?country=BR&printType=books&maxResults=10'
+    + (CHAVE_GOOGLE ? '&key=' + CHAVE_GOOGLE : '') + '&q=' + encodeURIComponent(q));
   if(!r.ok) throw new Error('google ' + r.status);
   const d = await r.json();
   return (d.items || []).map(i => {
