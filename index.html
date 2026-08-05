@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hiluey's Library">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F1F2EE">
+<title>Hiluey's Library</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg' > <rect width='100' height='100' rx='20' fill='%230C1F3A'/> <circle cx='83' cy='13' r='7' fill='%23FBBF24' opacity='0.95'/> <path d='M100 100 L0 100 L0 78 Q20 58 40 70 Q60 82 80 44 Q89 24 100 30 Z' fill='%231D4ED8'/> <path d='M0 78 Q20 58 40 70 Q60 82 80 44 Q89 24 100 30' stroke='%2360A5FA' stroke-width='1.5' fill='none' opacity='0.55'/> <path d='M78 42 Q94 10 100 30 Q93 36 81 47 Z' fill='%2393C5FD' opacity='0.8'/> <path d='M80 40 Q90 18 100 27' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' opacity='0.9'/> <g transform='translate(36,60) rotate(20)'> <path d='M-22 7 Q0 15 22 7' stroke='%2393C5FD' stroke-width='2' fill='none' stroke-linecap='round' opacity='0.7'/> <ellipse cx='0' cy='4' rx='24' ry='4.5' fill='%23FBBF24'/> <rect x='-12' y='-28' width='8' height='28' rx='4' fill='white'/> <rect x='5' y='-28' width='8' height='28' rx='4' fill='white'/> <rect x='-12' y='-17' width='25' height='8' rx='4' fill='white'/> <line x1='-12' y1='-14' x2='-30' y2='-2' stroke='white' stroke-width='6' stroke-linecap='round'/> <line x1='13' y1='-14' x2='28' y2='-29' stroke='white' stroke-width='6' stroke-linecap='round'/> <circle cx='0.5' cy='-36' r='9.5' fill='white'/> <circle cx='-3' cy='-38' r='1.8' fill='%230C1F3A'/> <circle cx='4' cy='-38' r='1.8' fill='%230C1F3A'/> <path d='M-5 -32 Q0.5 -27 6 -32' stroke='%230C1F3A' stroke-width='2' fill='none' stroke-linecap='round'/> </g> </svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --papel:#F1F2EE;
+    --papel-alto:#FBFBFA;
+    --tinta:#1A1D1A;
+    --tinta-suave:#5A6160;
+    --regua:#D5D8D1;
+    --grifo:#DFE85F;
+    --caneta:#0C1F3A;
+    --serif: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    --margem-col: 62px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--papel);color:var(--tinta);font-family:var(--sans);
+    font-size:16px;line-height:1.5;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+  }
+  button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  :focus-visible{outline:2px solid var(--caneta);outline-offset:2px;border-radius:2px}
+
+  /* ---------- cabeçalho ---------- */
+  header{
+    padding:20px 20px 14px;border-bottom:1px solid var(--regua);
+    display:flex;align-items:center;gap:12px;
+  }
+  .logo{width:40px;height:40px;flex:0 0 auto;border-radius:9px}
+  .aviso{
+    display:flex;align-items:center;gap:12px;justify-content:space-between;
+    padding:11px 20px;background:#FBF3DE;border-bottom:1px solid #E8D9AE;font-size:13.5px;
+  }
+  .aviso[hidden]{display:none}
+  .aviso button{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--caneta);border-bottom:1px solid #E8D9AE;padding-bottom:2px;flex:0 0 auto;
+  }
+  .marca{
+    font-family:var(--serif);font-size:22px;letter-spacing:-.02em;font-style:italic;
+    line-height:1.1;
+  }
+  .conta{
+    margin-left:auto;display:flex;align-items:center;gap:8px;flex:0 0 auto;
+    padding:4px 12px 4px 4px;border:1px solid var(--regua);border-radius:999px;
+    background:var(--papel-alto);
+  }
+  .conta .inicial{
+    width:27px;height:27px;border-radius:50%;background:var(--caneta);color:#fff;
+    font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;
+    flex:0 0 auto;
+  }
+  .conta .quem{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--tinta-suave);max-width:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .conta.vazia .inicial{background:none;border:1px dashed var(--regua);color:var(--tinta-suave)}
+
+  .stats{
+    padding:11px 20px;border-bottom:1px solid var(--regua);
+    font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--tinta-suave);
+    display:flex;gap:14px;flex-wrap:wrap;
+  }
+  .stats b{color:var(--tinta);font-weight:600}
+  .controles{padding:14px 20px 0}
+  #busca{
+    width:100%;padding:11px 13px;border:1px solid var(--regua);border-radius:3px;
+    font-size:16px;font-family:var(--sans);background:var(--papel-alto);color:var(--tinta);
+    -webkit-appearance:none;
+  }
+  #busca:focus{outline:none;border-color:var(--caneta)}
+  .linha-controles{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .filtros{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+  .filtros button{
+    padding:5px 11px;border:1px solid var(--regua);border-radius:999px;
+    font-size:12.5px;color:var(--tinta-suave);background:var(--papel-alto);
+  }
+  .filtros button[aria-pressed="true"]{border-color:var(--tinta);color:var(--tinta);background:var(--papel)}
+  #ordem{
+    padding:6px 8px;border:1px solid var(--regua);border-radius:3px;font-size:12.5px;
+    background:var(--papel-alto);color:var(--tinta-suave);font-family:var(--sans);
+  }
+  .achado{
+    display:block;width:100%;text-align:left;padding:14px 0;border-bottom:1px solid var(--regua);
+  }
+  .achado .onde{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--tinta-suave);display:block;margin-bottom:6px;
+  }
+  .achado .trecho{font-family:var(--serif);font-size:16px;line-height:1.5;display:block}
+  .achado mark{background:var(--grifo);color:inherit;padding:0 1px}
+  .grupo{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--tinta-suave);margin:22px 0 2px;
+  }
+
+  /* ---------- estante ---------- */
+  .estante{
+    display:flex;gap:8px;overflow-x:auto;padding:14px 20px;
+    border-bottom:1px solid var(--regua);scrollbar-width:none;
+  }
+  .estante::-webkit-scrollbar{display:none}
+  .lombada{
+    flex:0 0 auto;display:flex;align-items:center;gap:8px;max-width:190px;
+    padding:7px 12px;border:1px solid var(--regua);
+    border-radius:2px;background:var(--papel-alto);white-space:nowrap;
+    font-size:13.5px;color:var(--tinta-suave);transition:.15s;overflow:hidden;
+  }
+  .lombada span.rotulo{overflow:hidden;text-overflow:ellipsis}
+  .lombada .mini{
+    width:17px;height:25px;min-width:17px;object-fit:cover;border-radius:1px;
+    box-shadow:0 1px 3px rgba(26,29,26,.3);flex:0 0 auto;
+  }
+  .lombada[aria-pressed="true"]{
+    border-color:var(--tinta);color:var(--tinta);
+    box-shadow:inset 0 -3px 0 var(--grifo);
+  }
+  .lombada.novo{border-style:dashed}
+
+  /* ---------- ficha do livro ---------- */
+  .ficha{padding:26px 20px 8px}
+  .ficha h1{
+    font-family:var(--serif);font-size:27px;line-height:1.2;
+    margin:0 0 4px;letter-spacing:-.015em;font-weight:normal;
+  }
+  .ficha .autor{color:var(--tinta-suave);font-size:14px;margin:0}
+  .acoes{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
+  .acoes button{
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--caneta);
+    border-bottom:1px solid var(--regua);padding-bottom:3px;
+  }
+  .acoes button:hover{border-bottom-color:var(--caneta)}
+  .acoes button.perigo{color:#8A3A32}
+
+  /* ---------- capas e estados ---------- */
+  .marca-estado{
+    width:11px;height:11px;border-radius:50%;border:1.5px solid var(--tinta-suave);
+    flex:0 0 auto;display:inline-block;
+  }
+  .marca-estado.lendo{border-color:#9AA31F;background:linear-gradient(90deg,var(--grifo) 50%,transparent 50%)}
+  .marca-estado.lido{border-color:var(--caneta);background:var(--caneta)}
+  .estados{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .estados button{
+    display:flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid var(--regua);
+    border-radius:999px;font-size:13px;color:var(--tinta-suave);background:var(--papel-alto);
+  }
+  .estados button[aria-pressed="true"]{border-color:var(--tinta);color:var(--tinta)}
+  .ficha-topo{display:flex;gap:18px;align-items:flex-start}
+  .ficha-topo .capa{
+    width:78px;flex:0 0 auto;border-radius:2px;
+    box-shadow:0 3px 12px rgba(26,29,26,.24);display:block;
+  }
+  .resultados{margin-top:14px;display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto}
+  .resultado{
+    display:flex;gap:12px;align-items:center;text-align:left;width:100%;
+    padding:9px 8px;border-radius:3px;
+  }
+  .resultado:hover{background:var(--papel)}
+  .resultado img{width:32px;height:46px;object-fit:cover;border-radius:1px;background:var(--regua);flex:0 0 auto}
+  .resultado .tit{font-size:14.5px;line-height:1.25;display:block}
+  .resultado .aut{font-size:12.5px;color:var(--tinta-suave);display:block;margin-top:2px}
+  .linha-busca{display:flex;gap:8px;align-items:stretch}
+  .linha-busca input{flex:1}
+  .linha-busca button{
+    padding:0 15px;border:1px solid var(--caneta);border-radius:3px;color:var(--caneta);
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  }
+  .capa-previa{display:flex;gap:14px;align-items:center;margin-top:14px}
+  .capa-previa img{width:56px;border-radius:2px;box-shadow:0 2px 8px rgba(26,29,26,.22)}
+
+  /* ---------- grade de capas ---------- */
+  .grade{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(102px,1fr));
+    gap:20px 14px;padding:20px;
+  }
+  .tile{
+    display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;
+    text-align:left;width:100%;padding:0;
+  }
+  .tile .arte{
+    aspect-ratio:2/3;flex:0 0 auto;border-radius:3px;overflow:hidden;position:relative;
+    box-shadow:0 3px 10px rgba(26,29,26,.22);background:var(--caneta);
+    display:flex;align-items:flex-start;padding:11px;
+  }
+  .tile .arte img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .tile .semcapa{
+    font-family:var(--serif);font-size:12.5px;line-height:1.3;color:#fff;
+    hyphens:auto;overflow:hidden;
+    display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;
+  }
+  .tile .selo{
+    position:absolute;right:7px;bottom:7px;width:11px;height:11px;border-radius:50%;
+    border:1.5px solid rgba(255,255,255,.85);
+  }
+  .tile .selo.lendo{background:linear-gradient(90deg,var(--grifo) 50%,transparent 50%)}
+  .tile .selo.lido{background:#fff}
+  .tile .tit{display:block;margin-top:8px}
+  .tile .serie{
+    display:block;font-size:10px;line-height:1.25;color:var(--tinta-suave);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .tile .principal{
+    font-size:12.5px;line-height:1.3;min-height:2.6em;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .tile .meta{
+    display:block;font-family:var(--mono);font-size:10px;color:var(--tinta-suave);
+    margin-top:2px;
+  }
+  .tile.novo .arte{
+    background:none;border:1px dashed var(--regua);box-shadow:none;
+    align-items:center;justify-content:center;color:var(--tinta-suave);font-size:22px;
+  }
+
+  /* ---------- citações ---------- */
+  .rolo{padding:4px 20px 0;--margem-col:56px}
+  .citacao{display:grid;grid-template-columns:var(--margem-col) 1fr;padding:16px 0}
+  .pag{
+    font-family:var(--mono);font-size:12.5px;color:var(--tinta-suave);
+    padding:3px 13px 0 0;text-align:right;overflow-wrap:anywhere;
+  }
+  .pag span{background-size:0% 11px;background-position:0 62%;background-repeat:no-repeat;
+    background-image:linear-gradient(var(--grifo),var(--grifo));transition:background-size .45s ease}
+  .citacao.recem .pag span{background-size:100% 11px}
+  .corpo{border-left:1px solid var(--regua);padding-left:14px}
+  .texto{font-family:var(--serif);font-size:17px;line-height:1.55;white-space:pre-wrap}
+  .nota{
+    font-family:var(--sans);font-size:13.5px;color:var(--tinta-suave);
+    margin-top:8px;padding-left:11px;border-left:2px solid var(--grifo);
+  }
+  .lixo{
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--tinta-suave);margin-top:10px;margin-right:14px;opacity:0;transition:.2s;
+  }
+  .citacao:hover .lixo,.citacao:focus-within .lixo{opacity:1}
+  @media (hover:none){.lixo{opacity:.55}}
+
+  /* ---------- alternância de vista ---------- */
+  body[data-vista="estante"] .estante,
+  body[data-vista="estante"] .fab{display:none}
+  body[data-vista="livro"] .stats,
+  body[data-vista="livro"] .controles{display:none}
+
+  /* ---------- vazio ---------- */
+  .vazio{padding:56px 20px;text-align:center;color:var(--tinta-suave)}
+  .vazio p{font-family:var(--serif);font-size:18px;font-style:italic;margin:0 0 6px;color:var(--tinta)}
+  .vazio small{font-size:13.5px}
+
+  /* ---------- botão principal ---------- */
+  .fab{
+    position:fixed;left:20px;right:20px;bottom:calc(20px + env(safe-area-inset-bottom));
+    background:var(--tinta);color:var(--papel-alto);padding:16px;border-radius:2px;
+    font-size:15px;font-weight:500;box-shadow:0 6px 22px rgba(26,29,26,.22);
+    display:flex;align-items:center;justify-content:center;gap:9px;max-width:420px;margin:0 auto;
+  }
+  .fab:disabled{opacity:.4}
+
+  /* ---------- folha (modal) ---------- */
+  .fundo{
+    position:fixed;inset:0;background:rgba(26,29,26,.45);z-index:40;
+    display:flex;align-items:flex-end;justify-content:center;
+  }
+  .fundo[hidden]{display:none}
+  .folha{
+    background:var(--papel-alto);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;
+    border-radius:6px 6px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom));
+    animation:sobe .22s ease-out;
+  }
+  @keyframes sobe{from{transform:translateY(22px);opacity:.6}to{transform:none;opacity:1}}
+  .folha h2{
+    font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--tinta-suave);margin:0 0 18px;font-weight:normal;
+  }
+  label{
+    display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--tinta-suave);margin:16px 0 6px;
+  }
+  input[type=text],textarea{
+    width:100%;padding:11px 12px;border:1px solid var(--regua);border-radius:3px;
+    background:var(--papel-alto);color:var(--tinta);font-size:16px;font-family:var(--sans);
+  }
+  textarea{font-family:var(--serif);font-size:17px;line-height:1.5;resize:vertical;min-height:130px}
+  input:focus,textarea:focus{outline:none;border-color:var(--caneta)}
+  .dupla{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .foto{
+    border:1px dashed var(--regua);border-radius:3px;padding:20px;text-align:center;
+    color:var(--tinta-suave);font-size:14px;width:100%;
+  }
+  .foto:hover{border-color:var(--caneta);color:var(--caneta)}
+  .status{
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--caneta);
+    margin-top:10px;min-height:16px;
+  }
+  .status.erro{color:#8A3A32}
+  .rodape{display:flex;gap:10px;margin-top:24px}
+  .rodape button{flex:1;padding:14px;border-radius:3px;font-size:15px}
+  .salvar{background:var(--tinta);color:var(--papel-alto);font-weight:500}
+  .salvar:disabled{opacity:.35}
+  .cancelar{border:1px solid var(--regua);color:var(--tinta-suave)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="logo" aria-hidden="true">
+    <rect width="100" height="100" rx="20" fill="#0C1F3A"/>
+    <circle cx="83" cy="13" r="7" fill="#FBBF24" opacity="0.95"/>
+    <path d="M100 100 L0 100 L0 78 Q20 58 40 70 Q60 82 80 44 Q89 24 100 30 Z" fill="#1D4ED8"/>
+    <path d="M0 78 Q20 58 40 70 Q60 82 80 44 Q89 24 100 30" stroke="#60A5FA" stroke-width="1.5" fill="none" opacity="0.55"/>
+    <path d="M78 42 Q94 10 100 30 Q93 36 81 47 Z" fill="#93C5FD" opacity="0.8"/>
+    <path d="M80 40 Q90 18 100 27" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.9"/>
+    <g transform="translate(36,60) rotate(20)">
+      <path d="M-22 7 Q0 15 22 7" stroke="#93C5FD" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.7"/>
+      <ellipse cx="0" cy="4" rx="24" ry="4.5" fill="#FBBF24"/>
+      <rect x="-12" y="-28" width="8" height="28" rx="4" fill="white"/>
+      <rect x="5" y="-28" width="8" height="28" rx="4" fill="white"/>
+      <rect x="-12" y="-17" width="25" height="8" rx="4" fill="white"/>
+      <line x1="-12" y1="-14" x2="-30" y2="-2" stroke="white" stroke-width="6" stroke-linecap="round"/>
+      <line x1="13" y1="-14" x2="28" y2="-29" stroke="white" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="0.5" cy="-36" r="9.5" fill="white"/>
+      <circle cx="-3" cy="-38" r="1.8" fill="#0C1F3A"/>
+      <circle cx="4" cy="-38" r="1.8" fill="#0C1F3A"/>
+      <path d="M-5 -32 Q0.5 -27 6 -32" stroke="#0C1F3A" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g>
+  </svg>
+  <div class="marca">Hiluey&rsquo;s Library</div>
+  <button class="conta" id="btnConta"></button>
+</header>
+
+<div class="aviso" id="aviso" hidden><span id="avisoTexto"></span><button id="btnBackup">Salvar backup</button></div>
+<div class="stats" id="stats"></div>
+<div class="controles">
+  <input type="search" id="busca" placeholder="Buscar livro ou citação" autocomplete="off">
+  <div class="linha-controles">
+    <div class="filtros" id="filtros"></div>
+    <select id="ordem" aria-label="Ordenar por">
+      <option value="estado">Por estado</option>
+      <option value="titulo">Título A–Z</option>
+      <option value="autor">Autor A–Z</option>
+      <option value="citacoes">Mais citações</option>
+    </select>
+  </div>
+</div>
+<nav class="estante" id="estante"></nav>
+<main id="palco"></main>
+
+<button class="fab" id="btnNova">Nova citação</button>
+
+<div class="fundo" id="fundo" hidden>
+  <div class="folha" id="folha" role="dialog" aria-modal="true"></div>
+</div>
+
+<input type="file" id="arquivoCapa" accept="image/*" hidden>
+<input type="file" id="arquivoJson" accept=".json,application/json" hidden>
+
+<script>
+window.addEventListener('error', ev => {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99;background:#8A3A32;color:#fff;padding:12px;font:12px/1.4 monospace;white-space:pre-wrap';
+  d.textContent = 'Erro: ' + (ev.message || '') + '\n' + (ev.filename || '') + ':' + (ev.lineno || '');
+  document.body.appendChild(d);
+});
+window.addEventListener('unhandledrejection', ev => {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99;background:#8A3A32;color:#fff;padding:12px;font:12px/1.4 monospace;white-space:pre-wrap';
+  d.textContent = 'Falha: ' + (ev.reason && ev.reason.message ? ev.reason.message : String(ev.reason));
+  document.body.appendChild(d);
+});
+const CHAVE = 'margem-biblioteca-v1';
+let dados = { livros: [], atual: null };
+let capas = {};
+let recem = null;
+
+/* ---------------- armazenamento ---------------- */
+async function carregar(){
+  try{
+    const v = localStorage.getItem(CHAVE);
+    if(v) dados = JSON.parse(v);
+  }catch(e){ /* primeira execução */ }
+  if(!dados.livros) dados.livros = [];
+  if(!dados.atual && dados.livros[0]) dados.atual = dados.livros[0].id;
+  dados.livros.forEach(l => { if(!l.estado) l.estado = 'lendo'; });
+  try{
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && k.startsWith('capa:')) capas[k.slice(5)] = localStorage.getItem(k);
+    }
+  }catch(e){}
+}
+async function salvar(){
+  try{ localStorage.setItem(CHAVE, JSON.stringify(dados)); }
+  catch(e){ alert('O armazenamento do navegador encheu. Baixe um backup .json e apague algum livro antigo.'); }
+}
+async function salvarCapa(livroId, valor){
+  capas[livroId] = valor;
+  try{ localStorage.setItem('capa:' + livroId, valor); }
+  catch(e){ alert('Não coube mais uma capa no armazenamento. A citação foi salva, a capa não.'); }
+}
+function apagarCapa(livroId){
+  delete capas[livroId];
+  try{ localStorage.removeItem('capa:' + livroId); }catch(e){}
+}
+
+/* ---------------- utilidades ---------------- */
+const id = () => Math.random().toString(36).slice(2,10);
+const livroAtual = () => dados.livros.find(l => l.id === dados.atual);
+const ESTADOS = [['lendo','Lendo'],['a-ler','A ler'],['lido','Lido']];
+const FILTROS = [['todos','Todos'],['lendo','Lendo'],['a-ler','A ler'],['lido','Lido']];
+let filtro = 'todos', ordem = 'estado', busca = '';
+const dobrar = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+function realce(texto, termo){
+  const base = esc(texto);
+  if(!termo) return base;
+  const alvo = esc(termo).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  try{ return base.replace(new RegExp(alvo,'gi'), m => '<mark>' + m + '</mark>'); }
+  catch(e){ return base; }
+}
+const pesoEstado = e => ({ 'lendo':0, 'a-ler':1, 'lido':2 }[e] ?? 1);
+function estanteOrdenada(){
+  const q = dobrar(busca);
+  let lista = dados.livros.filter(l => filtro === 'todos' || (l.estado||'a-ler') === filtro);
+  if(q) lista = lista.filter(l =>
+    dobrar(l.titulo).includes(q) || dobrar(l.autor).includes(q) ||
+    l.quotes.some(x => dobrar(x.texto).includes(q)));
+  const cmp = {
+    titulo: (a,b) => a.titulo.localeCompare(b.titulo,'pt-BR'),
+    autor: (a,b) => (a.autor||'').localeCompare(b.autor||'','pt-BR') || a.titulo.localeCompare(b.titulo,'pt-BR'),
+    citacoes: (a,b) => b.quotes.length - a.quotes.length || a.titulo.localeCompare(b.titulo,'pt-BR'),
+    estado: (a,b) => pesoEstado(a.estado) - pesoEstado(b.estado) || (a.criadoEm||0) - (b.criadoEm||0)
+  }[ordem];
+  return lista.sort(cmp);
+}
+
+function pintarStats(){
+  const c = { lendo:0, 'a-ler':0, lido:0 };
+  let citacoes = 0;
+  dados.livros.forEach(l => { c[l.estado||'a-ler']++; citacoes += l.quotes.length; });
+  const el = document.getElementById('stats');
+  if(!dados.livros.length){ el.innerHTML = ''; return; }
+  el.innerHTML = `<span><b>${c.lendo}</b> lendo</span><span><b>${c['a-ler']}</b> a ler</span>` +
+    `<span><b>${c.lido}</b> ${c.lido===1?'lido':'lidos'}</span>` +
+    `<span><b>${citacoes}</b> ${citacoes===1?'citação':'citações'}</span>`;
+}
+
+function pintarFiltros(){
+  document.getElementById('filtros').innerHTML = FILTROS.map(([v,r]) =>
+    `<button data-filtro="${v}" aria-pressed="${filtro===v}">${r}</button>`).join('');
+  document.getElementById('ordem').value = ordem;
+}
+
+function achados(){
+  const q = dobrar(busca);
+  const hits = [];
+  dados.livros.forEach(l => l.quotes.forEach(x => {
+    if(dobrar(x.texto).includes(q)) hits.push({ livro:l, q:x });
+  }));
+  return hits.sort((a,b) => a.livro.titulo.localeCompare(b.livro.titulo,'pt-BR')
+    || numPag(a.q.pagina) - numPag(b.q.pagina));
+}
+const numPag = p => { const m = String(p||'').match(/\d+/); return m ? parseInt(m[0],10) : 999999; };
+const ordenar = qs => qs.slice().sort((a,b) => numPag(a.pagina) - numPag(b.pagina) || (a.criadoEm||0)-(b.criadoEm||0));
+const esc = t => String(t||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------------- desenho ---------------- */
+let vista = 'estante';
+
+function larguraMargem(qs){
+  const maior = qs.reduce((m,q) => Math.max(m, String(q.pagina||'').length), 1);
+  return Math.min(120, Math.max(46, maior * 8 + 16));
+}
+
+function partesTitulo(t){
+  const s = String(t || '').trim();
+  const i = s.indexOf(':');
+  if(i > 0 && i < s.length - 1) return { serie: s.slice(0, i).trim(), principal: s.slice(i + 1).trim() };
+  return { serie: '', principal: s };
+}
+
+function tile(l){
+  const capa = capas[l.id];
+  const n = l.quotes.length;
+  return `<button class="tile" data-abrir="${l.id}">
+    <span class="arte">
+      ${capa ? `<img src="${esc(capa)}" alt="">` : `<span class="semcapa">${esc(l.titulo)}</span>`}
+      <span class="selo ${esc(l.estado||'a-ler')}"></span>
+    </span>
+    <span class="tit">${(() => { const t = partesTitulo(l.titulo);
+      return (t.serie ? `<span class="serie">${esc(t.serie)}</span>` : '') +
+             `<span class="principal">${esc(t.principal)}</span>`; })()}</span>
+    <span class="meta">${n} ${n===1?'citação':'citações'}</span>
+  </button>`;
+}
+
+function desenhar(){
+  pintarNome();
+  pintarStats();
+  pintarFiltros();
+  pintarAviso();
+
+  const lista = estanteOrdenada();
+  if(!busca.trim() && lista.length && !lista.some(l => l.id === dados.atual)) dados.atual = lista[0].id;
+
+  document.getElementById('estante').innerHTML =
+    `<button class="lombada" id="btnVoltar">← estante</button>` + lista.map(l =>
+      `<button class="lombada" aria-pressed="${l.id===dados.atual}" data-abrir="${l.id}">${
+        capas[l.id] ? `<img class="mini" src="${esc(capas[l.id])}" alt="">`
+                    : `<span class="marca-estado ${esc(l.estado||'a-ler')}"></span>`
+      }<span class="rotulo">${esc(partesTitulo(l.titulo).principal)}</span></button>`).join('');
+
+  const palco = document.getElementById('palco');
+  const livro = livroAtual();
+  if(!livro || busca.trim()) vista = 'estante';
+  document.body.dataset.vista = vista;
+
+  /* ---- busca ---- */
+  if(busca.trim()){
+    const trechos = achados();
+    palco.innerHTML = `
+      <section class="ficha">
+        <h1>Resultados</h1>
+        <p class="autor">${lista.length} ${lista.length===1?'livro':'livros'} · ${trechos.length} ${trechos.length===1?'citação':'citações'}</p>
+      </section>
+      ${lista.length ? `<div class="grade">${lista.map(tile).join('')}</div>` : ''}
+      ${trechos.length ? `<div class="rolo" style="padding-top:0">
+        <div class="grupo">Citações</div>
+        ${trechos.slice(0,80).map(h => `
+          <button class="achado" data-ir="${h.livro.id}">
+            <span class="onde">${esc(h.livro.titulo)}${h.q.pagina ? ' · p. ' + esc(h.q.pagina) : ''}</span>
+            <span class="trecho">${realce(h.q.texto.length > 320 ? h.q.texto.slice(0,320) + '…' : h.q.texto, busca.trim())}</span>
+          </button>`).join('')}
+        ${trechos.length > 80 ? `<div class="grupo">mostrando as 80 primeiras</div>` : ''}
+      </div>` : ''}
+      ${(!lista.length && !trechos.length) ? `<div class="vazio"><p>Nada encontrado.</p>
+        <small>Tente outra palavra, ou limpe a busca.</small></div>` : ''}`;
+    return;
+  }
+
+  /* ---- estante ---- */
+  if(vista === 'estante'){
+    palco.innerHTML = dados.livros.length
+      ? (lista.length
+          ? `<div class="grade">${lista.map(tile).join('')}
+              <button class="tile novo" id="btnNovoLivro"><span class="arte">+</span>
+              <span class="tit">Novo livro</span></button></div>`
+          : `<div class="vazio"><p>Nenhum livro neste filtro.</p>
+              <small>Troque o filtro acima para ver os outros.</small></div>`)
+      : `<div class="vazio"><p>Nenhum livro por aqui ainda.</p>
+          <small>Cadastre um livro para começar a guardar trechos.</small>
+          <div style="margin-top:18px"><button class="lombada novo" id="btnNovoLivro">+ livro</button></div></div>`;
+    return;
+  }
+
+  /* ---- livro aberto ---- */
+  const qs = ordenar(livro.quotes);
+  palco.innerHTML = `
+    <section class="ficha">
+      <div class="ficha-topo">
+        ${capas[livro.id] ? `<img class="capa" src="${esc(capas[livro.id])}" alt="Capa de ${esc(livro.titulo)}">` : ''}
+        <div>
+          <h1>${esc(livro.titulo)}</h1>
+          ${livro.autor ? `<p class="autor">${esc(livro.autor)}</p>` : ''}
+        </div>
+      </div>
+      <div class="estados">
+        ${ESTADOS.map(([v,r]) => `<button data-estado="${v}" aria-pressed="${(livro.estado||'a-ler')===v}">
+          <span class="marca-estado ${v}"></span>${r}</button>`).join('')}
+      </div>
+      <div class="acoes">
+        <button data-acao="pdf">Gerar PDF</button>
+        <button data-acao="editar">Editar livro</button>
+        <button data-acao="excluir" class="perigo">Excluir livro</button>
+      </div>
+    </section>
+    ${qs.length ? `<div class="rolo" style="--margem-col:${larguraMargem(qs)}px">${qs.map(q => `
+      <article class="citacao ${q.id===recem?'recem':''}">
+        <div class="pag"><span>${esc(q.pagina || '—')}</span></div>
+        <div class="corpo">
+          <div class="texto">${esc(q.texto)}</div>
+          ${q.nota ? `<div class="nota">${esc(q.nota)}</div>` : ''}
+          <button class="lixo" data-editar="${q.id}">editar</button>
+          <button class="lixo" data-excluir="${q.id}">excluir</button>
+        </div>
+      </article>`).join('')}</div>`
+    : `<div class="vazio"><p>A página está em branco.</p>
+        <small>Toque em Nova citação para guardar o primeiro trecho.</small></div>`}`;
+
+  if(recem){ setTimeout(()=>{ recem=null; }, 900); }
+}
+
+/* ---------------- eventos gerais ---------------- */
+document.addEventListener('click', async e => {
+  const t = e.target.closest('button');
+  if(!t) return;
+
+  if(t.dataset.abrir){
+    dados.atual = t.dataset.abrir; vista = 'livro';
+    await salvar(); desenhar(); window.scrollTo(0,0); return;
+  }
+  if(t.id === 'btnVoltar'){ vista = 'estante'; desenhar(); window.scrollTo(0,0); return; }
+  if(t.dataset.filtro){ filtro = t.dataset.filtro; desenhar(); return; }
+  if(t.dataset.ir){
+    dados.atual = t.dataset.ir;
+    busca = ''; document.getElementById('busca').value = ''; vista = 'livro';
+    await salvar(); desenhar(); window.scrollTo(0,0); return;
+  }
+  if(t.id === 'btnNovoLivro'){ folhaLivro(); return; }
+  if(t.id === 'btnNova'){ folhaCitacao(); return; }
+  if(t.id === 'btnBackup'){ backup(); return; }
+  if(t.id === 'btnConta'){ folhaConta(); return; }
+  if(t.dataset.estado){ livroAtual().estado = t.dataset.estado; await salvar(); desenhar(); return; }
+
+  const acao = t.dataset.acao;
+  if(acao === 'pdf') return gerarPDF();
+  if(acao === 'backup') return backup();
+  if(acao === 'editar') return folhaLivro(livroAtual());
+  if(acao === 'excluir'){
+    const l = livroAtual();
+    if(!confirm(`Excluir "${l.titulo}" e suas ${l.quotes.length} citações?`)) return;
+    dados.livros = dados.livros.filter(x => x.id !== l.id);
+    apagarCapa(l.id);
+    dados.atual = dados.livros[0] ? dados.livros[0].id : null;
+    vista = 'estante';
+    await salvar(); desenhar(); return;
+  }
+  if(t.dataset.editar){
+    const q = livroAtual().quotes.find(x => x.id === t.dataset.editar);
+    folhaCitacao(q); return;
+  }
+  if(t.dataset.excluir){
+    if(!confirm('Excluir esta citação?')) return;
+    const l = livroAtual();
+    l.quotes = l.quotes.filter(x => x.id !== t.dataset.excluir);
+    await salvar(); desenhar(); return;
+  }
+});
+
+function fechar(){ document.getElementById('fundo').hidden = true; }
+document.getElementById('fundo').addEventListener('click', e => {
+  if(e.target.id === 'fundo') fechar();
+});
+document.addEventListener('keydown', e => { if(e.key==='Escape') fechar(); });
+
+/* ---------------- folha: livro ---------------- */
+let capaPendente = null;
+
+function folhaLivro(livro){
+  capaPendente = livro ? (capas[livro.id] || null) : null;
+  const f = document.getElementById('folha');
+  f.innerHTML = `
+    <h2>${livro ? 'Editar livro' : 'Novo livro'}</h2>
+    <label for="ftit">Título</label>
+    <div class="linha-busca">
+      <input type="text" id="ftit" value="${esc(livro?livro.titulo:'')}" placeholder="Ex.: Teoria Pura do Direito">
+      <button id="fbuscar">Buscar</button>
+    </div>
+    <label for="faut">Autor</label>
+    <input type="text" id="faut" value="${esc(livro?livro.autor:'')}" placeholder="Opcional">
+    <div id="fresultados"></div>
+    <div class="status" id="fstatus"></div>
+    <div id="fcapa"></div>
+    <div class="rodape">
+      <button class="cancelar" id="fcancel">Cancelar</button>
+      <button class="salvar" id="fok">Salvar</button>
+    </div>`;
+  document.getElementById('fundo').hidden = false;
+  document.getElementById('ftit').focus();
+  document.getElementById('fcancel').onclick = fechar;
+  document.getElementById('fbuscar').onclick = buscarLivro;
+  document.getElementById('ftit').addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); buscarLivro(); }
+  });
+  pintarCapa();
+  document.getElementById('fok').onclick = async () => {
+    const titulo = document.getElementById('ftit').value.trim();
+    if(!titulo){ document.getElementById('ftit').focus(); return; }
+    const autor = document.getElementById('faut').value.trim();
+    let alvo;
+    if(livro){ livro.titulo = titulo; livro.autor = autor; alvo = livro; }
+    else{
+      alvo = { id:id(), titulo, autor, quotes:[], estado:'lendo', criadoEm:Date.now() };
+      dados.livros.push(alvo); dados.atual = alvo.id; vista = 'livro';
+    }
+    if(capaPendente && capaPendente !== capas[alvo.id]) await salvarCapa(alvo.id, capaPendente);
+    await salvar(); fechar(); desenhar();
+  };
+}
+
+function pintarCapa(){
+  const el = document.getElementById('fcapa');
+  if(!el) return;
+  el.innerHTML = capaPendente
+    ? `<div class="capa-previa"><img src="${esc(capaPendente)}" alt="Capa escolhida">
+         <button id="ftrocar" style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--caneta)">Trocar capa</button></div>`
+    : `<button class="foto" id="ffoto" style="margin-top:14px">Fotografar a capa</button>`;
+  const b = document.getElementById('ffoto') || document.getElementById('ftrocar');
+  if(b) b.onclick = () => document.getElementById('arquivoCapa').click();
+}
+
+async function buscarLivro(){
+  const termo = document.getElementById('ftit').value.trim();
+  const st = document.getElementById('fstatus');
+  const res = document.getElementById('fresultados');
+  if(!termo){ document.getElementById('ftit').focus(); return; }
+  st.className = 'status'; st.textContent = 'Procurando…'; res.innerHTML = '';
+  try{
+    const url = 'https://www.googleapis.com/books/v1/volumes?printType=books&maxResults=5&q=' + encodeURIComponent(termo);
+    const r = await fetch(url);
+    if(!r.ok) throw new Error('busca');
+    const d = await r.json();
+    const itens = (d.items || []).map(i => i.volumeInfo || {});
+    if(!itens.length){ st.textContent = 'Nada encontrado. Ajuste o título ou fotografe a capa.'; return; }
+    st.textContent = '';
+    res.innerHTML = `<div class="resultados">${itens.map((v,ix) => {
+      const capa = v.imageLinks ? (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail || '').replace('http://','https://') : '';
+      const aut = (v.authors || []).join(', ');
+      return `<button class="resultado" data-ix="${ix}">
+        <img src="${esc(capa)}" alt="">
+        <span><span class="tit">${esc(v.title || '')}</span>
+        <span class="aut">${esc([aut, v.publishedDate ? v.publishedDate.slice(0,4) : ''].filter(Boolean).join(' · '))}</span></span>
+      </button>`;
+    }).join('')}</div>`;
+    res.querySelectorAll('.resultado').forEach(b => {
+      b.onclick = async () => {
+        const v = itens[parseInt(b.dataset.ix,10)];
+        document.getElementById('ftit').value = v.title || '';
+        document.getElementById('faut').value = (v.authors || []).join(', ');
+        const capa = v.imageLinks ? (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail || '').replace('http://','https://') : '';
+        res.innerHTML = '';
+        if(capa){
+          st.textContent = 'Baixando a capa…';
+          capaPendente = await baixarImagem(capa);
+          st.textContent = '';
+          pintarCapa();
+        }
+      };
+    });
+  }catch(err){
+    st.className = 'status erro';
+    st.textContent = 'A busca online não respondeu aqui. Fotografe a capa que dá no mesmo.';
+    pintarCapa();
+  }
+}
+
+async function baixarImagem(url){
+  try{
+    const r = await fetch(url);
+    const blob = await r.blob();
+    return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+  }catch(e){ return url; }
+}
+
+document.getElementById('arquivoCapa').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  const st = document.getElementById('fstatus');
+  const b64 = await reduzir(file, 520, 0.8);
+  capaPendente = 'data:image/jpeg;base64,' + b64;
+  pintarCapa();
+});
+
+/* ---------------- folha: citação ---------------- */
+let fotoAtual = null;
+
+function folhaCitacao(q){
+  fotoAtual = null;
+  const f = document.getElementById('folha');
+  f.innerHTML = `
+    <h2>${q ? 'Editar citação' : 'Nova citação'}</h2>
+    <label for="ftexto">Trecho</label>
+    <textarea id="ftexto" placeholder="Toque aqui e use Digitalizar Texto para capturar da página">${esc(q?q.texto:'')}</textarea>
+    <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap">
+      <button id="barrumar" style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--caneta);border-bottom:1px solid var(--regua);padding-bottom:3px">Arrumar quebras</button>
+    </div>
+    <div class="dupla">
+      <div>
+        <label for="fpag">Página</label>
+        <input type="text" id="fpag" inputmode="numeric" value="${esc(q?q.pagina:'')}" placeholder="47 ou 47-48">
+      </div>
+      <div>
+        <label for="fnota">Nota</label>
+        <input type="text" id="fnota" value="${esc(q?q.nota:'')}" placeholder="Opcional">
+      </div>
+    </div>
+    <div class="rodape">
+      <button class="cancelar" id="fcancel">Cancelar</button>
+      <button class="salvar" id="fok">Salvar citação</button>
+    </div>`;
+  document.getElementById('fundo').hidden = false;
+  document.getElementById('fcancel').onclick = fechar;
+  document.getElementById('barrumar').onclick = () => {
+    const ta = document.getElementById('ftexto');
+    ta.value = arrumarTexto(ta.value);
+  };
+  document.getElementById('fok').onclick = async () => {
+    const texto = document.getElementById('ftexto').value.trim();
+    const pagina = document.getElementById('fpag').value.trim();
+    if(!texto){ document.getElementById('ftexto').focus(); return; }
+    const nota = document.getElementById('fnota').value.trim();
+    const livro = livroAtual();
+    if(q){ q.texto = texto; q.pagina = pagina; q.nota = nota; recem = q.id; }
+    else{
+      const nova = { id:id(), texto, pagina, nota, criadoEm:Date.now() };
+      livro.quotes.push(nova); recem = nova.id;
+    }
+    await salvar(); fechar(); desenhar();
+  };
+}
+
+function arrumarTexto(t){
+  return String(t || '')
+    .replace(/\r/g, '')
+    .replace(/(\p{Ll})[-–—]\n(\p{Ll})/gu, '$1$2')
+    .replace(/\n{2,}/g, '\u00b6')
+    .replace(/\n/g, ' ')
+    .replace(/\u00b6/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .trim();
+}
+
+/* ---------------- imagens ---------------- */
+function reduzir(file, max = 1600, qualidade = 0.82){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const escala = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = img.width * escala; c.height = img.height * escala;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      res(c.toDataURL('image/jpeg', qualidade).split(',')[1]);
+    };
+    img.onerror = () => rej(new Error('imagem'));
+    const fr = new FileReader();
+    fr.onload = () => { img.src = fr.result; };
+    fr.readAsDataURL(file);
+  });
+}
+
+/* ---------------- PDF ---------------- */
+function medir(src){
+  return new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res({ w:i.naturalWidth, h:i.naturalHeight });
+    i.onerror = rej;
+    i.src = src;
+  });
+}
+
+async function gerarPDF(){
+  const livro = livroAtual();
+  const qs = ordenar(livro.quotes);
+  if(!qs.length){ alert('Este livro ainda não tem citações.'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const L = 32, R = 25, TOPO = 28, BASE = 24;
+  const larg = 210 - L - R;
+  let y = TOPO;
+
+  const capa = capas[livro.id];
+  if(capa && capa.startsWith('data:')){
+    try{
+      const d = await medir(capa);
+      const fmt = capa.slice(11, capa.indexOf(';')).toUpperCase();
+      const w = 27, h = w * d.h / d.w;
+      doc.addImage(capa, fmt === 'PNG' ? 'PNG' : 'JPEG', L, y, w, h);
+      y += h + 9;
+    }catch(e){}
+  }
+
+  doc.setFont('times','bold'); doc.setFontSize(19);
+  doc.text(doc.splitTextToSize(livro.titulo, larg), L, y);
+  y += doc.splitTextToSize(livro.titulo, larg).length * 8;
+  if(livro.autor){
+    doc.setFont('times','italic'); doc.setFontSize(12); doc.setTextColor(90);
+    doc.text(livro.autor, L, y); y += 7;
+  }
+  doc.setTextColor(120); doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+  const selo = [nomeBiblioteca() ? 'Biblioteca ' + nomeBiblioteca() : '',
+    `${qs.length} ${qs.length===1?'citação':'citações'}`,
+    new Date().toLocaleDateString('pt-BR')].filter(Boolean).join(' · ');
+  doc.text(selo, L, y);
+  y += 5;
+  doc.setDrawColor(200); doc.line(L, y, 210-R, y); y += 12;
+
+  qs.forEach(q => {
+    doc.setFont('times','roman'); doc.setFontSize(11.5); doc.setTextColor(20);
+    const linhas = doc.splitTextToSize(q.texto, larg);
+    const notaLin = q.nota ? doc.splitTextToSize(q.nota, larg - 4) : [];
+    const alturaBloco = linhas.length*5.4 + (notaLin.length ? notaLin.length*4.4 + 4 : 0) + 9;
+    if(y + alturaBloco > 297 - BASE){ doc.addPage(); y = TOPO; }
+
+    doc.setFont('courier','normal'); doc.setFontSize(9); doc.setTextColor(120);
+    doc.text(String(q.pagina || '—'), L - 10, y, { align:'right' });
+
+    doc.setFont('times','roman'); doc.setFontSize(11.5); doc.setTextColor(20);
+    doc.text(linhas, L, y);
+    y += linhas.length * 5.4;
+
+    if(notaLin.length){
+      y += 3;
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(110);
+      doc.text(notaLin, L + 4, y);
+      y += notaLin.length * 4.4;
+    }
+    y += 9;
+  });
+
+  const total = doc.internal.getNumberOfPages();
+  for(let i=1;i<=total;i++){
+    doc.setPage(i);
+    doc.setFont('courier','normal'); doc.setFontSize(8); doc.setTextColor(150);
+    doc.text(String(i), 105, 297-14, { align:'center' });
+  }
+  const nome = livro.titulo.replace(/[^\p{L}\p{N}\s-]/gu,'').trim().replace(/\s+/g,'-').toLowerCase();
+  doc.save(`citacoes-${nome || 'livro'}.pdf`);
+}
+
+/* ---------------- backup ---------------- */
+const CHAVE_BACKUP = 'margem-ultimo-backup';
+
+function diasDesdeBackup(){
+  const t = parseInt(localStorage.getItem(CHAVE_BACKUP) || '0', 10);
+  if(!t) return null;
+  return Math.floor((Date.now() - t) / 86400000);
+}
+
+function nomeBiblioteca(){
+  return (dados.biblioteca || '').trim();
+}
+function pintarNome(){
+  const b = document.getElementById('btnConta');
+  const n = nomeBiblioteca();
+  b.className = 'conta' + (n ? '' : ' vazia');
+  b.innerHTML = n
+    ? `<span class="inicial">${esc(n[0].toUpperCase())}</span><span class="quem">${esc(n)}</span>`
+    : `<span class="inicial">+</span><span class="quem">quem lê</span>`;
+}
+function folhaConta(){
+  const f = document.getElementById('folha');
+  f.innerHTML = `
+    <h2>Biblioteca</h2>
+    <label for="fnome">De quem é esta biblioteca</label>
+    <input type="text" id="fnome" value="${esc(nomeBiblioteca())}" placeholder="Diogo">
+    <p style="font-size:13px;color:var(--tinta-suave);margin:8px 0 0">
+      Aparece no alto, na primeira página dos PDFs e no nome do arquivo de backup.</p>
+    <div class="acoes" style="margin-top:22px">
+      <button data-acao="backup">Salvar backup</button>
+      <button id="fimportar">Restaurar de um arquivo</button>
+    </div>
+    <div class="rodape">
+      <button class="cancelar" id="fcancel">Fechar</button>
+      <button class="salvar" id="fok">Salvar</button>
+    </div>`;
+  document.getElementById('fundo').hidden = false;
+  document.getElementById('fcancel').onclick = fechar;
+  document.getElementById('fimportar').onclick = () => document.getElementById('arquivoJson').click();
+  document.getElementById('fok').onclick = async () => {
+    dados.biblioteca = document.getElementById('fnome').value.trim();
+    await salvar(); fechar(); pintarNome();
+  };
+}
+
+function pintarAviso(){
+  const el = document.getElementById('aviso');
+  const tx = document.getElementById('avisoTexto');
+  const total = dados.livros.reduce((n, l) => n + l.quotes.length, 0);
+  if(!total){ el.hidden = true; return; }
+  const d = diasDesdeBackup();
+  if(d === null){ tx.textContent = 'Você ainda não salvou nenhum backup.'; el.hidden = false; }
+  else if(d >= 21){ tx.textContent = `Último backup há ${d} dias.`; el.hidden = false; }
+  else{ el.hidden = true; }
+}
+
+async function backup(){
+  const texto = JSON.stringify({ ...dados, capas }, null, 2);
+  const apelido = nomeBiblioteca().toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-|-$/g,'');
+  const nome = 'hiluey-library' + (apelido ? '-' + apelido : '') + '.json';
+  const arquivo = new File([texto], nome, { type:'application/json' });
+  try{
+    if(navigator.canShare && navigator.canShare({ files:[arquivo] })){
+      await navigator.share({ files:[arquivo], title:'Backup da Hiluey\u2019s Library' });
+      localStorage.setItem(CHAVE_BACKUP, String(Date.now()));
+      pintarAviso();
+      return;
+    }
+  }catch(e){
+    if(e && e.name === 'AbortError') return;
+  }
+  const blob = new Blob([texto], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = nome;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  localStorage.setItem(CHAVE_BACKUP, String(Date.now()));
+  pintarAviso();
+}
+
+async function restaurar(texto){
+  const d = JSON.parse(texto);
+  if(!d || !Array.isArray(d.livros)) throw new Error('formato');
+  const porId = new Map(dados.livros.map(l => [l.id, l]));
+  d.livros.forEach(l => porId.set(l.id, l));
+  dados.livros = Array.from(porId.values());
+  dados.livros.forEach(l => { if(!l.estado) l.estado = 'lido'; });
+  if(!dados.atual || !dados.livros.some(l => l.id === dados.atual)) dados.atual = dados.livros[0] && dados.livros[0].id;
+  for(const par of Object.entries(d.capas || {})) await salvarCapa(par[0], par[1]);
+  await salvar();
+  desenhar();
+}
+
+document.getElementById('arquivoJson').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  try{
+    const texto = await file.text();
+    await restaurar(texto);
+    fechar();
+  }catch(err){
+    alert('Não consegui ler esse arquivo. Ele precisa ser um backup .json da Biblioteca.');
+  }
+});
+
+document.getElementById('busca').addEventListener('input', e => {
+  busca = e.target.value;
+  desenhar();
+});
+document.getElementById('ordem').addEventListener('change', e => {
+  ordem = e.target.value;
+  desenhar();
+});
+
+/* ---------------- início ---------------- */
+(async () => {
+  try{ if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
+  await carregar();
+  desenhar();
+})();
+</script>
+</body>
+</html>
