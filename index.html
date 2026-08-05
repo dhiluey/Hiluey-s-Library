@@ -869,25 +869,27 @@ function folhaLivro(livro){
   const f = document.getElementById('folha');
   f.innerHTML = `
     <h2>${livro ? 'Editar livro' : 'Novo livro'}</h2>
-    <label for="ftit">Título</label>
+    <label for="fbusca">Procurar na internet</label>
     <div class="linha-busca">
-      <input type="text" id="ftit" value="${esc(livro?livro.titulo:'')}" placeholder="Ex.: Teoria Pura do Direito">
+      <input type="search" id="fbusca" value="${esc(livro?livro.titulo:'')}" placeholder="Título, autor ou ISBN">
       <button id="fbuscar">Buscar</button>
     </div>
-    <label for="faut">Autor</label>
-    <input type="text" id="faut" value="${esc(livro?livro.autor:'')}" placeholder="Opcional">
     <div id="fresultados"></div>
     <div class="status" id="fstatus"></div>
+    <label for="ftit">Título</label>
+    <input type="text" id="ftit" value="${esc(livro?livro.titulo:'')}" placeholder="Ex.: Teoria Pura do Direito">
+    <label for="faut">Autor</label>
+    <input type="text" id="faut" value="${esc(livro?livro.autor:'')}" placeholder="Opcional">
     <div id="fcapa"></div>
     <div class="rodape">
       <button class="cancelar" id="fcancel">Cancelar</button>
       <button class="salvar" id="fok">Salvar</button>
     </div>`;
   document.getElementById('fundo').hidden = false;
-  document.getElementById('ftit').focus();
+  document.getElementById('fbusca').focus();
   document.getElementById('fcancel').onclick = fechar;
   document.getElementById('fbuscar').onclick = buscarLivro;
-  document.getElementById('ftit').addEventListener('keydown', e => {
+  document.getElementById('fbusca').addEventListener('keydown', e => {
     if(e.key === 'Enter'){ e.preventDefault(); buscarLivro(); }
   });
   pintarCapa();
@@ -918,49 +920,89 @@ function pintarCapa(){
   if(b) b.onclick = () => document.getElementById('arquivoCapa').click();
 }
 
+function ehIsbn(t){
+  const d = String(t).replace(/[^0-9Xx]/g, '');
+  return (d.length === 10 || d.length === 13) && /^\d+[0-9Xx]?$/.test(d) ? d : '';
+}
+
+async function fonteGoogle(termo){
+  const isbn = ehIsbn(termo);
+  const q = isbn ? 'isbn:' + isbn : termo;
+  const r = await fetch('https://www.googleapis.com/books/v1/volumes?country=BR&printType=books&maxResults=6&q=' + encodeURIComponent(q));
+  if(!r.ok) throw new Error('google ' + r.status);
+  const d = await r.json();
+  return (d.items || []).map(i => {
+    const v = i.volumeInfo || {};
+    const capa = v.imageLinks ? (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail || '') : '';
+    return {
+      titulo: [v.title, v.subtitle].filter(Boolean).join(': '),
+      autor: (v.authors || []).join(', '),
+      ano: (v.publishedDate || '').slice(0, 4),
+      capa: capa.replace('http://', 'https://')
+    };
+  });
+}
+
+async function fonteOpenLibrary(termo){
+  const isbn = ehIsbn(termo);
+  const q = isbn ? 'isbn:' + isbn : termo;
+  const url = 'https://openlibrary.org/search.json?limit=6&fields=title,author_name,cover_i,first_publish_year&q=' + encodeURIComponent(q);
+  const r = await fetch(url);
+  if(!r.ok) throw new Error('openlibrary ' + r.status);
+  const d = await r.json();
+  return (d.docs || []).map(v => ({
+    titulo: v.title || '',
+    autor: (v.author_name || []).join(', '),
+    ano: v.first_publish_year ? String(v.first_publish_year) : '',
+    capa: v.cover_i ? `https://covers.openlibrary.org/b/id/${v.cover_i}-M.jpg` : ''
+  }));
+}
+
 async function buscarLivro(){
-  const termo = document.getElementById('ftit').value.trim();
+  const termo = document.getElementById('fbusca').value.trim();
   const st = document.getElementById('fstatus');
   const res = document.getElementById('fresultados');
-  if(!termo){ document.getElementById('ftit').focus(); return; }
+  if(!termo){ document.getElementById('fbusca').focus(); return; }
   st.className = 'status'; st.textContent = 'Procurando…'; res.innerHTML = '';
-  try{
-    const url = 'https://www.googleapis.com/books/v1/volumes?printType=books&maxResults=5&q=' + encodeURIComponent(termo);
-    const r = await fetch(url);
-    if(!r.ok) throw new Error('busca');
-    const d = await r.json();
-    const itens = (d.items || []).map(i => i.volumeInfo || {});
-    if(!itens.length){ st.textContent = 'Nada encontrado. Ajuste o título ou fotografe a capa.'; return; }
-    st.textContent = '';
-    res.innerHTML = `<div class="resultados">${itens.map((v,ix) => {
-      const capa = v.imageLinks ? (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail || '').replace('http://','https://') : '';
-      const aut = (v.authors || []).join(', ');
-      return `<button class="resultado" data-ix="${ix}">
-        <img src="${esc(capa)}" alt="">
-        <span><span class="tit">${esc(v.title || '')}</span>
-        <span class="aut">${esc([aut, v.publishedDate ? v.publishedDate.slice(0,4) : ''].filter(Boolean).join(' · '))}</span></span>
-      </button>`;
-    }).join('')}</div>`;
-    res.querySelectorAll('.resultado').forEach(b => {
-      b.onclick = async () => {
-        const v = itens[parseInt(b.dataset.ix,10)];
-        document.getElementById('ftit').value = v.title || '';
-        document.getElementById('faut').value = (v.authors || []).join(', ');
-        const capa = v.imageLinks ? (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail || '').replace('http://','https://') : '';
-        res.innerHTML = '';
-        if(capa){
-          st.textContent = 'Baixando a capa…';
-          capaPendente = await baixarImagem(capa);
-          st.textContent = '';
-          pintarCapa();
-        }
-      };
-    });
-  }catch(err){
-    st.className = 'status erro';
-    st.textContent = 'A busca online não respondeu aqui. Fotografe a capa que dá no mesmo.';
-    pintarCapa();
+
+  let itens = [], falhas = [];
+  for(const [nome, fonte] of [['Google Livros', fonteGoogle], ['Open Library', fonteOpenLibrary]]){
+    try{
+      const achados = await fonte(termo);
+      if(achados.length){ itens = achados; break; }
+      falhas.push(nome + ': nada encontrado');
+    }catch(e){ falhas.push(nome + ': ' + ((e && e.message) || 'erro')); }
   }
+
+  if(!itens.length){
+    st.className = 'status erro';
+    st.textContent = falhas.join(' · ') + '. Preencha à mão e fotografe a capa.';
+    pintarCapa();
+    return;
+  }
+
+  st.textContent = '';
+  res.innerHTML = `<div class="resultados">${itens.map((v, ix) => `
+    <button class="resultado" data-ix="${ix}">
+      <img src="${esc(v.capa)}" alt="">
+      <span><span class="tit">${esc(v.titulo)}</span>
+      <span class="aut">${esc([v.autor, v.ano].filter(Boolean).join(' · '))}</span></span>
+    </button>`).join('')}</div>`;
+
+  res.querySelectorAll('.resultado').forEach(b => {
+    b.onclick = async () => {
+      const v = itens[parseInt(b.dataset.ix, 10)];
+      document.getElementById('ftit').value = v.titulo;
+      document.getElementById('faut').value = v.autor;
+      res.innerHTML = '';
+      if(v.capa){
+        st.textContent = 'Baixando a capa…';
+        capaPendente = await baixarImagem(v.capa);
+        st.textContent = '';
+      }
+      pintarCapa();
+    };
+  });
 }
 
 async function baixarImagem(url){
