@@ -36,6 +36,8 @@
     padding-bottom:calc(96px + env(safe-area-inset-bottom));
   }
   button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  /* 16px é o mínimo que o Safari do iPhone aceita sem aplicar zoom ao focar */
+  input,select,textarea{font-size:16px}
   :focus-visible{outline:2px solid var(--caneta);outline-offset:2px;border-radius:2px}
 
   /* ---------- cabeçalho ---------- */
@@ -97,8 +99,9 @@
   }
   .filtros button[aria-pressed="true"]{border-color:var(--tinta);color:var(--tinta);background:var(--papel)}
   #ordem{
-    padding:6px 8px;border:1px solid var(--regua);border-radius:3px;font-size:12.5px;
+    padding:4px 6px;border:1px solid var(--regua);border-radius:3px;
     background:var(--papel-alto);color:var(--tinta-suave);font-family:var(--sans);
+    max-width:44vw;
   }
   .achado{
     display:block;width:100%;text-align:left;padding:14px 0;border-bottom:1px solid var(--regua);
@@ -154,12 +157,8 @@
   .acoes button.perigo{color:#8A3A32}
 
   /* ---------- capas e estados ---------- */
-  .marca-estado{
-    width:11px;height:11px;border-radius:50%;border:1.5px solid var(--tinta-suave);
-    flex:0 0 auto;display:inline-block;
-  }
-  .marca-estado.lendo{border-color:#9AA31F;background:linear-gradient(90deg,var(--grifo) 50%,transparent 50%)}
-  .marca-estado.lido{border-color:var(--caneta);background:var(--caneta)}
+  .gl{width:12px;height:12px;flex:0 0 auto;display:block}
+  .gl.claro{filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
   .estados{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
   .estados button{
     display:flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid var(--regua);
@@ -209,12 +208,7 @@
     hyphens:auto;overflow:hidden;
     display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;
   }
-  .tile .selo{
-    position:absolute;right:7px;bottom:7px;width:11px;height:11px;border-radius:50%;
-    border:1.5px solid rgba(255,255,255,.85);
-  }
-  .tile .selo.lendo{background:linear-gradient(90deg,var(--grifo) 50%,transparent 50%)}
-  .tile .selo.lido{background:#fff}
+  .tile .selo{position:absolute;right:8px;bottom:8px}
   .tile .tit{display:block;margin-top:8px}
   .tile .serie{
     display:block;font-size:10px;line-height:1.25;color:var(--tinta-suave);
@@ -316,9 +310,10 @@
     display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
     text-transform:uppercase;color:var(--tinta-suave);margin:16px 0 6px;
   }
-  input[type=text],textarea{
+  input[type=text],input[type=search],textarea{
     width:100%;padding:11px 12px;border:1px solid var(--regua);border-radius:3px;
     background:var(--papel-alto);color:var(--tinta);font-size:16px;font-family:var(--sans);
+    -webkit-appearance:none;
   }
   textarea{font-family:var(--serif);font-size:17px;line-height:1.5;resize:vertical;min-height:130px}
   input:focus,textarea:focus{outline:none;border-color:var(--caneta)}
@@ -609,6 +604,24 @@ function tocar(livro){
 const id = () => Math.random().toString(36).slice(2,10);
 const livroAtual = () => dados.livros.find(l => l.id === dados.atual);
 const ESTADOS = [['lendo','Lendo'],['a-ler','A ler'],['lido','Lido']];
+
+// formas diferentes, não só cores: a 12px a cor sozinha não distingue
+function glifo(estado, claro){
+  const anel = claro ? '#fff' : 'var(--tinta-suave)';
+  const cheio = claro ? '#fff' : 'var(--caneta)';
+  const marca = claro ? '#0C1F3A' : '#FBFBFA';
+  const meio = claro ? '#FBBF24' : '#C89A2B';
+  const abre = `<svg class="gl${claro ? ' claro' : ''}" viewBox="0 0 12 12" aria-hidden="true">`;
+  if(estado === 'lido')
+    return abre + `<circle cx="6" cy="6" r="5.4" fill="${cheio}"/>
+      <path d="M3.5 6.2 L5.2 8 L8.6 4.3" fill="none" stroke="${marca}" stroke-width="1.5"
+      stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  if(estado === 'lendo')
+    return abre + `<path d="M6 6 L6 1.4 A4.6 4.6 0 0 1 6 10.6 Z" fill="${meio}"/>
+      <circle cx="6" cy="6" r="4.6" fill="none" stroke="${meio}" stroke-width="1.5"/></svg>`;
+  return abre + `<circle cx="6" cy="6" r="4.6" fill="none" stroke="${anel}" stroke-width="1.5"
+    stroke-dasharray="1.6 1.9" stroke-linecap="round"/></svg>`;
+}
 const FILTROS = [['todos','Todos'],['lendo','Lendo'],['a-ler','A ler'],['lido','Lido']];
 let filtro = 'todos', ordem = 'estado', busca = '';
 const dobrar = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
@@ -686,7 +699,7 @@ function tile(l){
   return `<button class="tile" data-abrir="${l.id}">
     <span class="arte">
       ${capa ? `<img src="${esc(capa)}" alt="">` : `<span class="semcapa">${esc(l.titulo)}</span>`}
-      <span class="selo ${esc(l.estado||'a-ler')}"></span>
+      <span class="selo">${glifo(l.estado || 'a-ler', true)}</span>
     </span>
     <span class="tit">${(() => { const t = partesTitulo(l.titulo);
       return (t.serie ? `<span class="serie">${esc(t.serie)}</span>` : '') +
@@ -708,7 +721,7 @@ function desenhar(){
     `<button class="lombada" id="btnVoltar">← estante</button>` + lista.map(l =>
       `<button class="lombada" aria-pressed="${l.id===dados.atual}" data-abrir="${l.id}">${
         capas[l.id] ? `<img class="mini" src="${esc(capas[l.id])}" alt="">`
-                    : `<span class="marca-estado ${esc(l.estado||'a-ler')}"></span>`
+                    : glifo(l.estado || 'a-ler')
       }<span class="rotulo">${esc(partesTitulo(l.titulo).principal)}</span></button>`).join('');
 
   const palco = document.getElementById('palco');
@@ -780,7 +793,7 @@ function desenhar(){
       </div>
       <div class="estados">
         ${ESTADOS.map(([v,r]) => `<button data-estado="${v}" aria-pressed="${(livro.estado||'a-ler')===v}">
-          <span class="marca-estado ${v}"></span>${r}</button>`).join('')}
+          ${glifo(v)}${r}</button>`).join('')}
       </div>
       <div class="acoes">
         <button data-acao="pdf">Gerar PDF</button>
@@ -1129,17 +1142,10 @@ function medir(src){
   });
 }
 
-async function gerarPDF(){
-  const livro = livroAtual();
+const L = 32, R = 25, TOPO = 28, BASE = 24, LARG = 210 - 32 - 25;
+
+async function secaoLivro(doc, livro, y){
   const qs = ordenar(livro.quotes);
-  if(!qs.length){ alert('Este livro ainda não tem citações.'); return; }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit:'mm', format:'a4' });
-  const L = 32, R = 25, TOPO = 28, BASE = 24;
-  const larg = 210 - L - R;
-  let y = TOPO;
-
   const capa = capas[livro.id];
   if(capa && capa.startsWith('data:')){
     try{
@@ -1151,25 +1157,25 @@ async function gerarPDF(){
     }catch(e){}
   }
 
-  doc.setFont('times','bold'); doc.setFontSize(19);
-  doc.text(doc.splitTextToSize(livro.titulo, larg), L, y);
-  y += doc.splitTextToSize(livro.titulo, larg).length * 8;
+  doc.setFont('times','bold'); doc.setFontSize(19); doc.setTextColor(20);
+  const tit = doc.splitTextToSize(livro.titulo, LARG);
+  doc.text(tit, L, y);
+  y += tit.length * 8;
+
   if(livro.autor){
     doc.setFont('times','italic'); doc.setFontSize(12); doc.setTextColor(90);
     doc.text(livro.autor, L, y); y += 7;
   }
   doc.setTextColor(120); doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-  const selo = [nomeBiblioteca() ? 'Biblioteca ' + nomeBiblioteca() : '',
-    `${qs.length} ${qs.length===1?'citação':'citações'}`,
-    new Date().toLocaleDateString('pt-BR')].filter(Boolean).join(' · ');
-  doc.text(selo, L, y);
+  const rotulo = { lendo:'Lendo', 'a-ler':'A ler', lido:'Lido' }[livro.estado || 'a-ler'];
+  doc.text(`${rotulo} · ${qs.length} ${qs.length===1?'citação':'citações'}`, L, y);
   y += 5;
   doc.setDrawColor(200); doc.line(L, y, 210-R, y); y += 12;
 
   qs.forEach(q => {
     doc.setFont('times','roman'); doc.setFontSize(11.5); doc.setTextColor(20);
-    const linhas = doc.splitTextToSize(q.texto, larg);
-    const notaLin = q.nota ? doc.splitTextToSize(q.nota, larg - 4) : [];
+    const linhas = doc.splitTextToSize(q.texto, LARG);
+    const notaLin = q.nota ? doc.splitTextToSize(q.nota, LARG - 4) : [];
     const alturaBloco = linhas.length*5.4 + (notaLin.length ? notaLin.length*4.4 + 4 : 0) + 9;
     if(y + alturaBloco > 297 - BASE){ doc.addPage(); y = TOPO; }
 
@@ -1188,15 +1194,79 @@ async function gerarPDF(){
     }
     y += 9;
   });
+  return y;
+}
 
+function numerarPaginas(doc){
   const total = doc.internal.getNumberOfPages();
   for(let i=1;i<=total;i++){
     doc.setPage(i);
     doc.setFont('courier','normal'); doc.setFontSize(8); doc.setTextColor(150);
     doc.text(String(i), 105, 297-14, { align:'center' });
   }
-  const nome = livro.titulo.replace(/[^\p{L}\p{N}\s-]/gu,'').trim().replace(/\s+/g,'-').toLowerCase();
-  doc.save(`citacoes-${nome || 'livro'}.pdf`);
+}
+
+function nomeArquivo(base){
+  const apelido = nomeBiblioteca().toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-|-$/g,'');
+  return base + (apelido ? '-' + apelido : '');
+}
+
+async function gerarPDF(){
+  const livro = livroAtual();
+  const qs = ordenar(livro.quotes);
+  if(!qs.length){ alert('Este livro ainda não tem citações.'); return; }
+
+  const doc = new window.jspdf.jsPDF({ unit:'mm', format:'a4' });
+  let y = TOPO;
+
+  const selo = [nomeBiblioteca() ? 'Biblioteca ' + nomeBiblioteca() : '', new Date().toLocaleDateString('pt-BR')]
+    .filter(Boolean).join(' · ');
+  if(selo){
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(150);
+    doc.text(selo, L, y); y += 8;
+  }
+
+  await secaoLivro(doc, livro, y);
+  numerarPaginas(doc);
+
+  const magro = livro.titulo.replace(/[^\p{L}\p{N}\s-]/gu,'').trim().replace(/\s+/g,'-').toLowerCase();
+  doc.save(`citacoes-${magro || 'livro'}.pdf`);
+}
+
+async function gerarPDFCompleto(){
+  const livros = dados.livros.filter(l => l.quotes.length)
+    .sort((a,b) => a.titulo.localeCompare(b.titulo,'pt-BR'));
+  if(!livros.length){ alert('Não há citações guardadas ainda.'); return; }
+
+  const doc = new window.jspdf.jsPDF({ unit:'mm', format:'a4' });
+  const total = livros.reduce((n,l) => n + l.quotes.length, 0);
+  let y = TOPO + 24;
+
+  // folha de rosto
+  doc.setFont('times','bold'); doc.setFontSize(26); doc.setTextColor(20);
+  doc.text(nomeBiblioteca() ? 'Biblioteca ' + nomeBiblioteca() : 'Biblioteca', L, y);
+  y += 11;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(120);
+  doc.text(`${livros.length} ${livros.length===1?'livro':'livros'} · ${total} ${total===1?'citação':'citações'} · ${new Date().toLocaleDateString('pt-BR')}`, L, y);
+  y += 6;
+  doc.setDrawColor(200); doc.line(L, y, 210-R, y); y += 14;
+
+  livros.forEach(l => {
+    if(y > 297 - BASE - 8){ doc.addPage(); y = TOPO; }
+    doc.setFont('times','roman'); doc.setFontSize(11); doc.setTextColor(40);
+    const t = doc.splitTextToSize(l.titulo, LARG - 22);
+    doc.text(t, L, y);
+    doc.setFont('courier','normal'); doc.setFontSize(9); doc.setTextColor(140);
+    doc.text(String(l.quotes.length), 210 - R, y, { align:'right' });
+    y += t.length * 5.4 + 3.5;
+  });
+
+  for(const l of livros){
+    doc.addPage();
+    await secaoLivro(doc, l, TOPO);
+  }
+  numerarPaginas(doc);
+  doc.save(nomeArquivo('hiluey-library') + '.pdf');
 }
 
 /* ---------------- backup ---------------- */
@@ -1249,6 +1319,7 @@ function folhaConta(){
 
     <label style="margin-top:22px">Arquivo</label>
     <div class="acoes" style="margin-top:6px">
+      <button id="ftudo">PDF de tudo</button>
       <button data-acao="backup">Salvar cópia</button>
       <button id="fimportar">Restaurar de um arquivo</button>
     </div>
@@ -1260,6 +1331,7 @@ function folhaConta(){
   document.getElementById('fundo').hidden = false;
   document.getElementById('fcancel').onclick = fechar;
   document.getElementById('fimportar').onclick = () => document.getElementById('arquivoJson').click();
+  document.getElementById('ftudo').onclick = async () => { fechar(); await gerarPDFCompleto(); };
   const bEntrar = document.getElementById('fentrar'); if(bEntrar) bEntrar.onclick = entrar;
   const bSair = document.getElementById('fsair'); if(bSair) bSair.onclick = sair;
   const bAgora = document.getElementById('fagora'); if(bAgora) bAgora.onclick = async () => { fechar(); await empurrar(); };
