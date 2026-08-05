@@ -928,7 +928,7 @@ function ehIsbn(t){
 async function fonteGoogle(termo){
   const isbn = ehIsbn(termo);
   const q = isbn ? 'isbn:' + isbn : termo;
-  const r = await fetch('https://www.googleapis.com/books/v1/volumes?country=BR&printType=books&maxResults=6&q=' + encodeURIComponent(q));
+  const r = await fetch('https://www.googleapis.com/books/v1/volumes?country=BR&printType=books&maxResults=10&q=' + encodeURIComponent(q));
   if(!r.ok) throw new Error('google ' + r.status);
   const d = await r.json();
   return (d.items || []).map(i => {
@@ -946,7 +946,7 @@ async function fonteGoogle(termo){
 async function fonteOpenLibrary(termo){
   const isbn = ehIsbn(termo);
   const q = isbn ? 'isbn:' + isbn : termo;
-  const url = 'https://openlibrary.org/search.json?limit=6&fields=title,author_name,cover_i,first_publish_year&q=' + encodeURIComponent(q);
+  const url = 'https://openlibrary.org/search.json?limit=10&fields=title,author_name,cover_i,first_publish_year&q=' + encodeURIComponent(q);
   const r = await fetch(url);
   if(!r.ok) throw new Error('openlibrary ' + r.status);
   const d = await r.json();
@@ -965,23 +965,38 @@ async function buscarLivro(){
   if(!termo){ document.getElementById('fbusca').focus(); return; }
   st.className = 'status'; st.textContent = 'Procurando…'; res.innerHTML = '';
 
-  let itens = [], falhas = [];
-  for(const [nome, fonte] of [['Google Livros', fonteGoogle], ['Open Library', fonteOpenLibrary]]){
-    try{
-      const achados = await fonte(termo);
-      if(achados.length){ itens = achados; break; }
-      falhas.push(nome + ': nada encontrado');
-    }catch(e){ falhas.push(nome + ': ' + ((e && e.message) || 'erro')); }
-  }
+  const fontes = [['Google Livros', fonteGoogle], ['Open Library', fonteOpenLibrary]];
+  const saidas = await Promise.allSettled(fontes.map(f => f[1](termo)));
+
+  const responderam = [], falharam = [];
+  const vistos = new Map();
+  saidas.forEach((r, i) => {
+    const nome = fontes[i][0];
+    if(r.status !== 'fulfilled'){ falharam.push(`${nome}: ${(r.reason && r.reason.message) || 'erro'}`); return; }
+    responderam.push(`${nome} ${r.value.length}`);
+    r.value.forEach(v => {
+      if(!v.titulo) return;
+      const chave = dobrar(v.titulo).slice(0,44) + '|' + dobrar((v.autor||'').split(',')[0]);
+      const antes = vistos.get(chave);
+      // fica com a versão que tem capa; empatando, vale a primeira fonte
+      if(!antes || (!antes.capa && v.capa)) vistos.set(chave, v);
+    });
+  });
+
+  const itens = Array.from(vistos.values())
+    .sort((a,b) => (b.capa ? 1 : 0) - (a.capa ? 1 : 0))
+    .slice(0, 8);
 
   if(!itens.length){
     st.className = 'status erro';
-    st.textContent = falhas.join(' · ') + '. Preencha à mão e fotografe a capa.';
+    st.textContent = (falharam.length ? falharam.join(' · ') : 'Nada encontrado') + '. Preencha à mão e fotografe a capa.';
     pintarCapa();
     return;
   }
 
-  st.textContent = '';
+  st.className = 'status';
+  st.textContent = [responderam.join(' · '), falharam.join(' · ')].filter(Boolean).join(' — ');
+
   res.innerHTML = `<div class="resultados">${itens.map((v, ix) => `
     <button class="resultado" data-ix="${ix}">
       <img src="${esc(v.capa)}" alt="">
@@ -998,8 +1013,8 @@ async function buscarLivro(){
       if(v.capa){
         st.textContent = 'Baixando a capa…';
         capaPendente = await baixarImagem(v.capa);
-        st.textContent = '';
       }
+      st.textContent = '';
       pintarCapa();
     };
   });
