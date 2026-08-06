@@ -174,13 +174,14 @@
 
   /* ---------- capas e status ---------- */
   .gl{width:12px;height:12px;flex:0 0 auto;display:block}
-  .gl.claro{filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
-  .progresso{display:flex;align-items:center;gap:9px;margin-top:14px;flex-wrap:wrap}
+  .gl.claro{filter:none}
+  .progresso{display:flex;align-items:baseline;gap:7px;margin-top:12px;flex-wrap:wrap}
   .progresso label{margin:0;white-space:nowrap}
   .progresso input{
-    width:74px;padding:6px 9px;border:1px solid var(--regua);border-radius:3px;
-    background:var(--papel-alto);color:var(--tinta);font-family:var(--mono);text-align:center;
+    width:52px;padding:1px 2px 3px;border:none;border-bottom:1px solid var(--regua);
+    border-radius:0;background:none;color:var(--tinta);font-family:var(--mono);text-align:center;
   }
+  .progresso input:focus{outline:none;border-bottom-color:var(--caneta)}
   .progresso span{font-size:13px;color:var(--tinta-suave)}
   .status-linha{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
   .status-linha button{
@@ -238,7 +239,12 @@
     hyphens:auto;overflow:hidden;
     display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;
   }
-  .tile .selo{position:absolute;right:8px;bottom:8px}
+  .tile .selo{
+    position:absolute;right:6px;bottom:6px;
+    background:rgba(12,31,58,.62);border-radius:50%;
+    width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+  }
+  .tile .selo .gl{width:13px;height:13px}
   .tile .tit{display:block;margin-top:8px}
   .tile .serie{
     display:block;font-size:10px;line-height:1.25;color:var(--tinta-suave);
@@ -503,7 +509,7 @@ function apagarCapa(livroId){
 }
 
 /* ---------------- nuvem (OneDrive) ---------------- */
-const VERSAO = '2026-08-05-h';
+const VERSAO = '2026-08-05-i';
 const CLIENT_ID = '0fcbf4d6-c065-4c91-bc54-56f3e358f1a6';
 const CHAVE_GOOGLE = 'AIzaSyAhR6xIQbFYY-gZ9mobl_valT0b7xE42FU';   // Books API, restrita ao domínio do site
 const ESCOPOS = ['User.Read', 'Files.ReadWrite.AppFolder'];
@@ -839,8 +845,8 @@ function partesTitulo(t){
 
 function rotuloPaginas(l){
   if(!l.paginas) return '';
-  const a = parseInt(l.atual, 10);
-  return ((l.status || 'a-ler') === 'lendo' && a ? a + '/' : '') + l.paginas + ' páginas';
+  const a = parseInt(l.atual, 10) || 0;
+  return ((l.status || 'a-ler') === 'lendo' ? a + '/' : '') + l.paginas + ' páginas';
 }
 
 function tile(l){
