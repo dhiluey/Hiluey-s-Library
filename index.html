@@ -411,6 +411,7 @@
       <option value="titulo">Título A–Z</option>
       <option value="autor">Autor A–Z</option>
       <option value="citacoes">Mais citações</option>
+      <option value="paginas">Mais páginas</option>
     </select>
   </div>
 </div>
@@ -483,7 +484,7 @@ function apagarCapa(livroId){
 }
 
 /* ---------------- nuvem (OneDrive) ---------------- */
-const VERSAO = '2026-08-05-a';
+const VERSAO = '2026-08-05-d';
 const CLIENT_ID = '0fcbf4d6-c065-4c91-bc54-56f3e358f1a6';
 const CHAVE_GOOGLE = 'AIzaSyAhR6xIQbFYY-gZ9mobl_valT0b7xE42FU';   // Books API, restrita ao domínio do site
 const ESCOPOS = ['User.Read', 'Files.ReadWrite.AppFolder'];
@@ -696,6 +697,9 @@ function estanteOrdenada(){
     titulo: (a,b) => a.titulo.localeCompare(b.titulo,'pt-BR'),
     autor: (a,b) => (a.autor||'').localeCompare(b.autor||'','pt-BR') || a.titulo.localeCompare(b.titulo,'pt-BR'),
     citacoes: (a,b) => b.quotes.length - a.quotes.length || a.titulo.localeCompare(b.titulo,'pt-BR'),
+    // livro sem total cadastrado vai para o fim, em vez de contar como zero
+    paginas: (a,b) => (parseInt(b.paginas,10) || -1) - (parseInt(a.paginas,10) || -1)
+      || a.titulo.localeCompare(b.titulo,'pt-BR'),
     status: (a,b) => pesoStatus(a.status) - pesoStatus(b.status) || (a.criadoEm||0) - (b.criadoEm||0)
   }[ordem];
   return lista.sort(cmp);
@@ -795,7 +799,7 @@ function desenhar(){
   if(!busca.trim() && lista.length && !lista.some(l => l.id === dados.atual)) dados.atual = lista[0].id;
 
   document.getElementById('estante').innerHTML =
-    `<button class="lombada" id="btnVoltar">← estante</button>` + lista.map(l =>
+    `<button class="lombada" id="btnVoltar">← Estante</button>` + lista.map(l =>
       `<button class="lombada" aria-pressed="${l.id===dados.atual}" data-abrir="${l.id}">${
         capas[l.id] ? `<img class="mini" src="${esc(capas[l.id])}" alt="">`
                     : glifo(l.status || 'a-ler')
@@ -1076,79 +1080,6 @@ async function fonteOpenLibrary(termo){
     paginas: v.number_of_pages_median ? String(v.number_of_pages_median) : '',
     capa: v.cover_i ? `https://covers.openlibrary.org/b/id/${v.cover_i}-M.jpg` : ''
   }));
-}
-
-async function consultar(termo){
-  const fontes = [fonteGoogle, fonteOpenLibrary];
-  const saidas = await Promise.allSettled(fontes.map(f => f(termo)));
-  const vistos = new Map();
-  saidas.forEach(r => {
-    if(r.status !== 'fulfilled') return;
-    r.value.forEach(v => {
-      if(!v.titulo) return;
-      const chave = dobrar(v.titulo).slice(0,44) + '|' + dobrar((v.autor||'').split(',')[0]);
-      const antes = vistos.get(chave);
-      if(!antes){ vistos.set(chave, v); return; }
-      if(!antes.paginas && v.paginas) antes.paginas = v.paginas;
-    });
-  });
-  return Array.from(vistos.values());
-}
-
-// só aceita o resultado se o título bater de verdade — errar aqui é pior que deixar em branco
-function pareceOMesmo(livro, achado){
-  // compara título inteiro e a parte principal: subtítulos entram e saem entre edições
-  const formas = t => [dobrar(t), dobrar(partesTitulo(t).principal)].filter(Boolean);
-  const as = formas(livro.titulo), bs = formas(achado.titulo);
-  const bate = as.some(a => bs.some(b => a.includes(b) || b.includes(a)));
-  if(!bate) return false;
-  const autorLivro = dobrar((livro.autor||'').split(',')[0]).split(/\s+/).filter(x => x.length > 2).pop();
-  const autorAchado = dobrar(achado.autor||'');
-  if(autorLivro && autorAchado && !autorAchado.includes(autorLivro)) return false;
-  return true;
-}
-
-// migração: preenche o total de páginas de livros cadastrados antes de o campo existir.
-// Some do código assim que rodar.
-const MARCA_PAGINAS = 'hl-paginas-em';
-const SEMANA = 7 * 86400000;
-
-async function completarPaginas(manual){
-  const el = document.getElementById('fdiag');
-  const diga = t => { if(el) el.textContent = t; console.log('[paginas]', t); };
-
-  if(!manual){
-    if(!navigator.onLine) return;
-    const ultima = parseInt(localStorage.getItem(MARCA_PAGINAS) || '0', 10);
-    if(Date.now() - ultima < SEMANA) return;
-  }
-
-  const alvos = dados.livros.filter(l => !l.paginas);
-  if(!alvos.length){ diga('Nenhum livro sem total de páginas.'); return; }
-
-  let feitos = 0;
-  const relato = [];
-  for(const l of alvos){
-    const termo = [partesTitulo(l.titulo).principal, l.autor].filter(Boolean).join(' ');
-    diga(`Procurando: ${l.titulo}`);
-    try{
-      const achados = await consultar(termo);
-      const comPaginas = achados.filter(v => v.paginas);
-      const bom = comPaginas.find(v => pareceOMesmo(l, v));
-      if(bom){
-        l.paginas = bom.paginas; tocar(l); feitos++;
-        relato.push(`${l.titulo}: ${bom.paginas}`);
-      }else{
-        relato.push(`${l.titulo}: ${achados.length} achados, ${comPaginas.length} com páginas, nenhum bateu`);
-      }
-    }catch(e){
-      relato.push(`${l.titulo}: falhou (${(e && e.message) || e})`);
-    }
-    await new Promise(r => setTimeout(r, 400));
-  }
-  localStorage.setItem(MARCA_PAGINAS, String(Date.now()));
-  if(feitos){ await salvar(); desenhar(); }
-  diga(relato.join(' | '));
 }
 
 async function buscarLivro(){
@@ -1530,12 +1461,10 @@ function folhaConta(){
 
     <label style="margin-top:22px">Arquivo</label>
     <div class="acoes" style="margin-top:6px">
-      <button id="fcompletar">Completar páginas</button>
       <button id="ftudo">PDF de tudo</button>
       <button data-acao="backup">Salvar cópia</button>
       <button id="fimportar">Restaurar de um arquivo</button>
     </div>
-    <div class="status" id="fdiag" style="white-space:pre-wrap"></div>
     <p style="font-size:11px;color:var(--tinta-suave);margin:10px 0 0;font-family:var(--mono)">versão ${VERSAO}</p>
 
     <div class="rodape">
@@ -1546,7 +1475,6 @@ function folhaConta(){
   document.getElementById('fcancel').onclick = fechar;
   document.getElementById('fimportar').onclick = () => document.getElementById('arquivoJson').click();
   document.getElementById('ftudo').onclick = async () => { fechar(); await gerarPDFCompleto(); };
-  document.getElementById('fcompletar').onclick = () => completarPaginas(true);
   const bEntrar = document.getElementById('fentrar'); if(bEntrar) bEntrar.onclick = entrar;
   const bSair = document.getElementById('fsair'); if(bSair) bSair.onclick = sair;
   const bAgora = document.getElementById('fagora'); if(bAgora) bAgora.onclick = async () => { fechar(); await empurrar(); };
@@ -1643,7 +1571,6 @@ if('serviceWorker' in navigator){
   await carregar();
   desenhar();
   await iniciarNuvem();
-  setTimeout(() => completarPaginas(false), 4000);
 })();
 </script>
 </body>
