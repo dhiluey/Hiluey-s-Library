@@ -113,7 +113,7 @@
     display:block;font-size:12.5px;color:var(--tinta-suave);margin-top:2px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
-  .linha .n{font-family:var(--mono);font-size:11px;color:var(--tinta-suave)}
+  .linha .n{font-family:var(--mono);font-size:11px;color:var(--tinta-suave);text-align:right;line-height:1.5}
   #ordem{
     padding:4px 6px;border:1px solid var(--regua);border-radius:3px;
     background:var(--papel-alto);color:var(--tinta-suave);font-family:var(--sans);
@@ -724,7 +724,7 @@ function linha(l){
       <span class="t">${esc(t.serie ? t.serie + ': ' + t.principal : t.principal)}</span>
       ${l.autor ? `<span class="a">${esc(l.autor)}</span>` : ''}
     </span>
-    <span class="n">${l.quotes.length}</span>
+    <span class="n">${l.paginas ? esc(l.paginas) + ' p<br>' : ''}${l.quotes.length} cit</span>
   </button>`;
 }
 
@@ -778,6 +778,7 @@ function tile(l){
     <span class="tit">${(() => { const t = partesTitulo(l.titulo);
       return (t.serie ? `<span class="serie">${esc(t.serie)}</span>` : '') +
              `<span class="principal">${esc(t.principal)}</span>`; })()}</span>
+    ${l.paginas ? `<span class="meta">${esc(l.paginas)} páginas</span>` : ''}
     <span class="meta">${n} ${n===1?'citação':'citações'}</span>
   </button>`;
 }
@@ -863,7 +864,9 @@ function desenhar(){
         ${capas[livro.id] ? `<img class="capa" src="${esc(capas[livro.id])}" alt="Capa de ${esc(livro.titulo)}">` : ''}
         <div>
           <h1>${esc(livro.titulo)}</h1>
-          ${livro.autor ? `<p class="autor">${esc(livro.autor)}</p>` : ''}
+          ${(livro.autor || livro.paginas)
+            ? `<p class="autor">${esc([livro.autor, livro.paginas ? livro.paginas + ' páginas' : ''].filter(Boolean).join(' · '))}</p>`
+            : ''}
         </div>
       </div>
       <div class="status-linha">
@@ -971,8 +974,16 @@ function folhaLivro(livro){
     <div class="status" id="fstatus"></div>
     <label for="ftit">Título</label>
     <input type="text" id="ftit" value="${esc(livro?livro.titulo:'')}" placeholder="Ex.: Teoria Pura do Direito">
-    <label for="faut">Autor</label>
-    <input type="text" id="faut" value="${esc(livro?livro.autor:'')}" placeholder="Opcional">
+    <div class="dupla">
+      <div>
+        <label for="faut">Autor</label>
+        <input type="text" id="faut" value="${esc(livro?livro.autor:'')}" placeholder="Opcional">
+      </div>
+      <div>
+        <label for="fpaginas">Páginas</label>
+        <input type="text" id="fpaginas" inputmode="numeric" value="${esc(livro?livro.paginas:'')}" placeholder="Opcional">
+      </div>
+    </div>
     <div id="fcapa"></div>
     <label style="margin-top:24px">Salvar como</label>
     <div class="trio">
@@ -994,11 +1005,12 @@ function folhaLivro(livro){
     const titulo = document.getElementById('ftit').value.trim();
     if(!titulo){ document.getElementById('ftit').focus(); return; }
     const autor = document.getElementById('faut').value.trim();
+    const paginas = document.getElementById('fpaginas').value.trim();
     let alvo;
     if(livro){
-      livro.titulo = titulo; livro.autor = autor; livro.status = status; alvo = livro;
+      livro.titulo = titulo; livro.autor = autor; livro.paginas = paginas; livro.status = status; alvo = livro;
     }else{
-      alvo = { id:id(), titulo, autor, quotes:[], status, criadoEm:Date.now() };
+      alvo = { id:id(), titulo, autor, paginas, quotes:[], status, criadoEm:Date.now() };
       dados.livros.push(alvo);
       dados.atual = alvo.id;
       // livro em leitura abre para receber trechos; os outros voltam para a estante,
@@ -1043,6 +1055,7 @@ async function fonteGoogle(termo){
       titulo: [v.title, v.subtitle].filter(Boolean).join(': '),
       autor: (v.authors || []).join(', '),
       ano: (v.publishedDate || '').slice(0, 4),
+      paginas: v.pageCount ? String(v.pageCount) : '',
       capa: capa.replace('http://', 'https://')
     };
   });
@@ -1051,7 +1064,7 @@ async function fonteGoogle(termo){
 async function fonteOpenLibrary(termo){
   const isbn = ehIsbn(termo);
   const q = isbn ? 'isbn:' + isbn : termo;
-  const url = 'https://openlibrary.org/search.json?limit=20&fields=title,author_name,cover_i,first_publish_year&q=' + encodeURIComponent(q);
+  const url = 'https://openlibrary.org/search.json?limit=20&fields=title,author_name,cover_i,first_publish_year,number_of_pages_median&q=' + encodeURIComponent(q);
   const r = await fetch(url);
   if(!r.ok) throw new Error('openlibrary ' + r.status);
   const d = await r.json();
@@ -1059,6 +1072,7 @@ async function fonteOpenLibrary(termo){
     titulo: v.title || '',
     autor: (v.author_name || []).join(', '),
     ano: v.first_publish_year ? String(v.first_publish_year) : '',
+    paginas: v.number_of_pages_median ? String(v.number_of_pages_median) : '',
     capa: v.cover_i ? `https://covers.openlibrary.org/b/id/${v.cover_i}-M.jpg` : ''
   }));
 }
@@ -1084,7 +1098,9 @@ async function buscarLivro(){
       const chave = dobrar(v.titulo).slice(0,44) + '|' + dobrar((v.autor||'').split(',')[0]);
       const antes = vistos.get(chave);
       // fica com a versão que tem capa; empatando, vale a primeira fonte
-      if(!antes || (!antes.capa && v.capa)) vistos.set(chave, v);
+      if(!antes){ vistos.set(chave, v); return; }
+      if(!antes.capa && v.capa) vistos.set(chave, v);
+      else if(!antes.paginas && v.paginas) antes.paginas = v.paginas;
     });
   });
 
@@ -1122,6 +1138,7 @@ async function buscarLivro(){
         const v = todos[parseInt(b.dataset.ix, 10)];
         document.getElementById('ftit').value = v.titulo;
         document.getElementById('faut').value = v.autor;
+        if(v.paginas) document.getElementById('fpaginas').value = v.paginas;
         res.innerHTML = '';
         if(v.capa){
           st.textContent = 'Baixando a capa…';
@@ -1180,12 +1197,28 @@ function folhaCitacao(q){
         <input type="text" id="fnota" value="${esc(q?q.nota:'')}" placeholder="Opcional">
       </div>
     </div>
+    <div class="status" id="favisoPag"></div>
     <div class="rodape">
       <button class="cancelar" id="fcancel">Cancelar</button>
       <button class="salvar" id="fok">Salvar citação</button>
     </div>`;
   document.getElementById('fundo').hidden = false;
   document.getElementById('fcancel').onclick = fechar;
+  const campoPag = document.getElementById('fpag');
+  const conferirPagina = () => {
+    const el = document.getElementById('favisoPag');
+    const total = parseInt(livroAtual().paginas, 10);
+    const p = numPag(campoPag.value);
+    if(total && p !== 999999 && p > total){
+      el.className = 'status erro';
+      el.textContent = `Este livro está cadastrado com ${total} páginas. Pode ser engano de digitação — ou o total pode estar errado.`;
+    }else{
+      el.textContent = '';
+    }
+  };
+  campoPag.addEventListener('input', conferirPagina);
+  conferirPagina();
+
   document.getElementById('barrumar').onclick = () => {
     const ta = document.getElementById('ftexto');
     ta.value = arrumarTexto(ta.value);
