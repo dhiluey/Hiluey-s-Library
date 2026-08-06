@@ -177,11 +177,12 @@
   .gl.claro{filter:none}
   .progresso{display:flex;align-items:baseline;gap:7px;margin-top:12px;flex-wrap:wrap}
   .progresso label{margin:0;white-space:nowrap}
-  .progresso input{
+  /* id, para vencer a regra genérica de input[type=text] que vem mais abaixo */
+  #fatual{
     width:52px;padding:1px 2px 3px;border:none;border-bottom:1px solid var(--regua);
     border-radius:0;background:none;color:var(--tinta);font-family:var(--mono);text-align:center;
   }
-  .progresso input:focus{outline:none;border-bottom-color:var(--caneta)}
+  #fatual:focus{outline:none;border-bottom-color:var(--caneta)}
   .progresso span{font-size:13px;color:var(--tinta-suave)}
   .status-linha{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
   .status-linha button{
@@ -509,7 +510,7 @@ function apagarCapa(livroId){
 }
 
 /* ---------------- nuvem (OneDrive) ---------------- */
-const VERSAO = '2026-08-05-i';
+const VERSAO = '2026-08-05-j';
 const CLIENT_ID = '0fcbf4d6-c065-4c91-bc54-56f3e358f1a6';
 const CHAVE_GOOGLE = 'AIzaSyAhR6xIQbFYY-gZ9mobl_valT0b7xE42FU';   // Books API, restrita ao domínio do site
 const ESCOPOS = ['User.Read', 'Files.ReadWrite.AppFolder'];
