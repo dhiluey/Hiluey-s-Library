@@ -2,7 +2,7 @@
    Guarda o app no aparelho. Os dados nunca passam por aqui: ficam no
    armazenamento do navegador e sobem para o OneDrive quando há conexão. */
 
-const CACHE = 'hiluey-library-v4';
+const CACHE = 'hiluey-library-v5';
 
 const ESSENCIAIS = [
   './',

@@ -175,6 +175,13 @@
   /* ---------- capas e status ---------- */
   .gl{width:12px;height:12px;flex:0 0 auto;display:block}
   .gl.claro{filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+  .progresso{display:flex;align-items:center;gap:9px;margin-top:14px;flex-wrap:wrap}
+  .progresso label{margin:0;white-space:nowrap}
+  .progresso input{
+    width:74px;padding:6px 9px;border:1px solid var(--regua);border-radius:3px;
+    background:var(--papel-alto);color:var(--tinta);font-family:var(--mono);text-align:center;
+  }
+  .progresso span{font-size:13px;color:var(--tinta-suave)}
   .status-linha{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
   .status-linha button{
     display:flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid var(--regua);
@@ -457,6 +464,12 @@ async function carregar(){
     if(l.estado && !l.status){ l.status = l.estado; delete l.estado; }   // nome antigo
     if(!l.status) l.status = 'lendo';
   });
+  // marcas de exclusão com mais de 180 dias já cumpriram o papel
+  if(dados.removidos){
+    const limite = Date.now() - 180 * 86400000;
+    for(const k of Object.keys(dados.removidos))
+      if(dados.removidos[k] < limite) delete dados.removidos[k];
+  }
   try{
     for(let i = 0; i < localStorage.length; i++){
       const k = localStorage.key(i);
@@ -472,11 +485,17 @@ async function salvar(){
   await salvarLocal();
   agendarEnvio();
 }
+let avisouCapaCheia = false;
 async function salvarCapa(livroId, valor){
   capas[livroId] = valor;
   agendarEnvio();
   try{ localStorage.setItem('capa:' + livroId, valor); }
-  catch(e){ alert('Não coube mais uma capa no armazenamento. A citação foi salva, a capa não.'); }
+  catch(e){
+    if(!avisouCapaCheia){
+      avisouCapaCheia = true;
+      alert('O armazenamento local de capas encheu. As capas novas continuam na nuvem, mas podem não aparecer sem internet.');
+    }
+  }
 }
 function apagarCapa(livroId){
   delete capas[livroId];
@@ -484,7 +503,7 @@ function apagarCapa(livroId){
 }
 
 /* ---------------- nuvem (OneDrive) ---------------- */
-const VERSAO = '2026-08-05-d';
+const VERSAO = '2026-08-05-h';
 const CLIENT_ID = '0fcbf4d6-c065-4c91-bc54-56f3e358f1a6';
 const CHAVE_GOOGLE = 'AIzaSyAhR6xIQbFYY-gZ9mobl_valT0b7xE42FU';   // Books API, restrita ao domínio do site
 const ESCOPOS = ['User.Read', 'Files.ReadWrite.AppFolder'];
@@ -593,6 +612,26 @@ async function puxar(){
   }
 }
 
+async function enviarGrande(cab, corpo){
+  const bytes = new TextEncoder().encode(corpo);
+  const abrir = await fetch(
+    'https://graph.microsoft.com/v1.0/me/drive/special/approot:/biblioteca.json:/createUploadSession',
+    { method: 'POST', headers: { ...cab, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'replace' } }) });
+  if(!abrir.ok) return abrir;
+  const sessao = (await abrir.json()).uploadUrl;
+  const FATIA = 3276800;                       // múltiplo de 320 KiB, exigência do Graph
+  let r = null;
+  for(let ini = 0; ini < bytes.length; ini += FATIA){
+    const fim = Math.min(ini + FATIA, bytes.length);
+    r = await fetch(sessao, { method: 'PUT', headers: {
+      'Content-Range': `bytes ${ini}-${fim - 1}/${bytes.length}`
+    }, body: bytes.slice(ini, fim) });
+    if(!r.ok) return r;
+  }
+  return r;
+}
+
 async function empurrar(){
   if(!conta) return;
   if(!navigator.onLine){
@@ -605,11 +644,17 @@ async function empurrar(){
   const corpo = JSON.stringify({ ...dados, capas, atualizadoEm: Date.now() });
   try{
     const cab = await credencial();
-    let r = await fetch(ARQUIVO, { method: 'PUT', headers: { ...cab, 'Content-Type': 'application/json' }, body: corpo });
-    if(!r.ok){
-      await fetch(PASTA, { headers: cab });
-      await new Promise(res => setTimeout(res, 1000));
+    let r;
+    if(corpo.length > 3500000){
+      // arquivos grandes sobem por sessão de upload, em pedaços
+      r = await enviarGrande(cab, corpo);
+    }else{
       r = await fetch(ARQUIVO, { method: 'PUT', headers: { ...cab, 'Content-Type': 'application/json' }, body: corpo });
+      if(!r.ok){
+        await fetch(PASTA, { headers: cab });
+        await new Promise(res => setTimeout(res, 1000));
+        r = await fetch(ARQUIVO, { method: 'PUT', headers: { ...cab, 'Content-Type': 'application/json' }, body: corpo });
+      }
     }
     if(!r.ok) throw new Error('HTTP ' + r.status);
     localStorage.removeItem(PENDENTE);
@@ -649,8 +694,24 @@ const id = () => Math.random().toString(36).slice(2,10);
 const livroAtual = () => dados.livros.find(l => l.id === dados.atual);
 const STATUS = [['lendo','Lendo'],['a-ler','A ler'],['lido','Lido']];
 
-// formas diferentes, não só cores: a 12px a cor sozinha não distingue
-function glifo(status, claro){
+// formas diferentes, não só cores: a 12px a cor sozinha não distingue.
+// "a ler" é anel tracejado; "lendo" é anel contínuo que vai enchendo; "lido" é disco com visto.
+function setor(frac, cor){
+  if(frac <= 0) return '';
+  if(frac >= 1) return `<circle cx="6" cy="6" r="4.6" fill="${cor}"/>`;
+  const a = 2 * Math.PI * frac;
+  const x = (6 + 4.6 * Math.sin(a)).toFixed(2);
+  const y = (6 - 4.6 * Math.cos(a)).toFixed(2);
+  return `<path d="M6 6 L6 1.4 A4.6 4.6 0 ${frac > 0.5 ? 1 : 0} 1 ${x} ${y} Z" fill="${cor}"/>`;
+}
+
+function progresso(l){
+  const t = parseInt(l.paginas, 10), a = parseInt(l.atual, 10);
+  if((l.status || 'a-ler') !== 'lendo' || !t || !a) return 0;
+  return Math.max(0, Math.min(1, a / t));
+}
+
+function glifo(status, claro, frac){
   const anel = claro ? '#fff' : 'var(--tinta-suave)';
   const cheio = claro ? '#fff' : 'var(--caneta)';
   const marca = claro ? '#0C1F3A' : '#FBFBFA';
@@ -661,31 +722,28 @@ function glifo(status, claro){
       <path d="M3.5 6.2 L5.2 8 L8.6 4.3" fill="none" stroke="${marca}" stroke-width="1.5"
       stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   if(status === 'lendo')
-    return abre + `<path d="M6 6 L6 1.4 A4.6 4.6 0 0 1 6 10.6 Z" fill="${meio}"/>
-      <circle cx="6" cy="6" r="4.6" fill="none" stroke="${meio}" stroke-width="1.5"/></svg>`;
+    return abre + setor(frac || 0, meio) +
+      `<circle cx="6" cy="6" r="4.6" fill="none" stroke="${meio}" stroke-width="1.5"/></svg>`;
   return abre + `<circle cx="6" cy="6" r="4.6" fill="none" stroke="${anel}" stroke-width="1.5"
     stroke-dasharray="1.6 1.9" stroke-linecap="round"/></svg>`;
 }
+
 const FILTROS = [['todos','Todos'],['lendo','Lendo'],['a-ler','A ler'],['lido','Lido']];
 const pesoStatus = e => ({ 'lendo':0, 'a-ler':1, 'lido':2 }[e] ?? 1);
 let filtro = 'todos', ordem = 'status', busca = '';
 let modo = localStorage.getItem('hl-modo') || 'grade';
+let estanteLote = 120;   // quantos itens a estante desenha por vez
 const dobrar = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const termos = q => dobrar(q).split(/\s+/).filter(Boolean);
 const casa = (texto, ts) => { const t = dobrar(texto); return ts.every(x => t.includes(x)); };
 function realce(texto, termo){
-  let base = esc(texto);
+  const base = esc(texto);
   const ts = termos(termo).filter(t => t.length > 1);
   if(!ts.length) return base;
-  ts.forEach(t => {
-    const alvo = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    try{
-      base = base.replace(new RegExp('(?<!<[^>]*)' + alvo, 'gi'), m => '<mark>' + m + '</mark>');
-    }catch(e){
-      base = base.replace(new RegExp(alvo, 'gi'), m => '<mark>' + m + '</mark>');
-    }
-  });
-  return base;
+  const alvos = ts.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  try{
+    return base.replace(new RegExp(alvos, 'gi'), m => '<mark>' + m + '</mark>');
+  }catch(e){ return base; }
 }
 
 function estanteOrdenada(){
@@ -724,18 +782,25 @@ function pintarModo(){
 function linha(l){
   const t = partesTitulo(l.titulo);
   return `<button class="linha" data-abrir="${l.id}">
-    ${glifo(l.status || 'a-ler')}
+    ${glifo(l.status || 'a-ler', false, progresso(l))}
     <span class="nome">
       <span class="t">${esc(t.serie ? t.serie + ': ' + t.principal : t.principal)}</span>
       ${l.autor ? `<span class="a">${esc(l.autor)}</span>` : ''}
     </span>
-    <span class="n">${l.paginas ? esc(l.paginas) + ' p<br>' : ''}${l.quotes.length} cit</span>
+    <span class="n">${l.paginas ? esc(rotuloPaginas(l).replace(' páginas',' p')) + '<br>' : ''}${l.quotes.length} cit</span>
   </button>`;
 }
 
-const estanteHTML = lista => modo === 'lista'
-  ? `<div class="linhas">${lista.map(linha).join('')}</div>`
-  : `<div class="grade">${lista.map(tile).join('')}</div>`;
+function estanteHTML(lista){
+  const visiveis = lista.slice(0, estanteLote);
+  const corpo = modo === 'lista'
+    ? `<div class="linhas">${visiveis.map(linha).join('')}</div>`
+    : `<div class="grade">${visiveis.map(tile).join('')}</div>`;
+  const resto = lista.length - visiveis.length;
+  return corpo + (resto > 0
+    ? `<button class="mais" id="btnMaisEstante">Mostrar mais ${Math.min(120, resto)} de ${resto}</button>`
+    : '');
+}
 
 function pintarFiltros(){
   document.getElementById('filtros').innerHTML = FILTROS.map(([v,r]) =>
@@ -772,18 +837,24 @@ function partesTitulo(t){
   return { serie: '', principal: s };
 }
 
+function rotuloPaginas(l){
+  if(!l.paginas) return '';
+  const a = parseInt(l.atual, 10);
+  return ((l.status || 'a-ler') === 'lendo' && a ? a + '/' : '') + l.paginas + ' páginas';
+}
+
 function tile(l){
   const capa = capas[l.id];
   const n = l.quotes.length;
   return `<button class="tile" data-abrir="${l.id}">
     <span class="arte">
-      ${capa ? `<img src="${esc(capa)}" alt="">` : `<span class="semcapa">${esc(l.titulo)}</span>`}
-      <span class="selo">${glifo(l.status || 'a-ler', true)}</span>
+      ${capa ? `<img src="${esc(capa)}" alt="" loading="lazy" decoding="async">` : `<span class="semcapa">${esc(l.titulo)}</span>`}
+      <span class="selo">${glifo(l.status || 'a-ler', true, progresso(l))}</span>
     </span>
     <span class="tit">${(() => { const t = partesTitulo(l.titulo);
       return (t.serie ? `<span class="serie">${esc(t.serie)}</span>` : '') +
              `<span class="principal">${esc(t.principal)}</span>`; })()}</span>
-    ${l.paginas ? `<span class="meta">${esc(l.paginas)} páginas</span>` : ''}
+    ${l.paginas ? `<span class="meta">${esc(rotuloPaginas(l))}</span>` : ''}
     <span class="meta">${n} ${n===1?'citação':'citações'}</span>
   </button>`;
 }
@@ -801,8 +872,8 @@ function desenhar(){
   document.getElementById('estante').innerHTML =
     `<button class="lombada" id="btnVoltar">← Estante</button>` + lista.map(l =>
       `<button class="lombada" aria-pressed="${l.id===dados.atual}" data-abrir="${l.id}">${
-        capas[l.id] ? `<img class="mini" src="${esc(capas[l.id])}" alt="">`
-                    : glifo(l.status || 'a-ler')
+        capas[l.id] ? `<img class="mini" src="${esc(capas[l.id])}" alt="" loading="lazy" decoding="async">`
+                    : glifo(l.status || 'a-ler', false, progresso(l))
       }<span class="rotulo">${esc(partesTitulo(l.titulo).principal)}</span></button>`).join('');
 
   const palco = document.getElementById('palco');
@@ -870,7 +941,7 @@ function desenhar(){
         <div>
           <h1>${esc(livro.titulo)}</h1>
           ${(livro.autor || livro.paginas)
-            ? `<p class="autor">${esc([livro.autor, livro.paginas ? livro.paginas + ' páginas' : ''].filter(Boolean).join(' · '))}</p>`
+            ? `<p class="autor">${esc([livro.autor, rotuloPaginas(livro)].filter(Boolean).join(' · '))}</p>`
             : ''}
         </div>
       </div>
@@ -878,6 +949,11 @@ function desenhar(){
         ${STATUS.map(([v,r]) => `<button data-status="${v}" aria-pressed="${(livro.status||'a-ler')===v}">
           ${glifo(v)}${r}</button>`).join('')}
       </div>
+      ${(livro.status || 'a-ler') === 'lendo' ? `<div class="progresso">
+        <label for="fatual">Página atual</label>
+        <input type="text" id="fatual" inputmode="numeric" value="${esc(livro.atual || '')}" placeholder="—">
+        ${livro.paginas ? `<span>de ${esc(livro.paginas)}</span>` : `<span>sem total cadastrado</span>`}
+      </div>` : ''}
       <div class="acoes">
         <button data-acao="pdf">Gerar PDF</button>
         <button data-acao="editar">Editar livro</button>
@@ -897,6 +973,12 @@ function desenhar(){
     : `<div class="vazio"><p>A página está em branco.</p>
         <small>Toque em Nova citação para guardar o primeiro trecho.</small></div>`}`;
 
+  const campoAtual = document.getElementById('fatual');
+  if(campoAtual) campoAtual.onchange = async () => {
+    livro.atual = campoAtual.value.trim();
+    tocar(livro); await salvar(); desenhar();
+  };
+
   if(recem){ setTimeout(()=>{ recem=null; }, 900); }
 }
 
@@ -910,7 +992,8 @@ document.addEventListener('click', async e => {
     await salvar(); desenhar(); window.scrollTo(0,0); return;
   }
   if(t.id === 'btnVoltar'){ vista = 'estante'; desenhar(); window.scrollTo(0,0); return; }
-  if(t.dataset.filtro){ filtro = t.dataset.filtro; desenhar(); return; }
+  if(t.id === 'btnMaisEstante'){ estanteLote += 120; desenhar(); return; }
+  if(t.dataset.filtro){ filtro = t.dataset.filtro; estanteLote = 120; desenhar(); return; }
   if(t.dataset.ir){
     dados.atual = t.dataset.ir;
     busca = ''; document.getElementById('busca').value = ''; vista = 'livro';
@@ -921,6 +1004,7 @@ document.addEventListener('click', async e => {
   if(t.id === 'btnConta'){ folhaConta(); return; }
   if(t.id === 'btnModo'){
     modo = modo === 'grade' ? 'lista' : 'grade';
+    estanteLote = 120;
     localStorage.setItem('hl-modo', modo);
     desenhar(); return;
   }
@@ -1165,7 +1249,21 @@ async function baixarImagem(url){
   try{
     const r = await fetch(url);
     const blob = await r.blob();
-    return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+    const bruto = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+    // reduz para no máximo 400px: capa de estante não precisa de mais, e o espaço é finito
+    return await new Promise(res => {
+      const img = new Image();
+      img.onload = () => {
+        const escala = Math.min(1, 400 / Math.max(img.width, img.height));
+        if(escala === 1 && bruto.length < 60000) return res(bruto);
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * escala); c.height = Math.round(img.height * escala);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = () => res(bruto);
+      img.src = bruto;
+    });
   }catch(e){ return url; }
 }
 
@@ -1188,7 +1286,7 @@ function folhaCitacao(q){
   f.innerHTML = `
     <h2>${q ? 'Editar citação' : 'Nova citação'}</h2>
     <label for="ftexto">Trecho</label>
-    <textarea id="ftexto" placeholder="Toque aqui e use Digitalizar Texto para capturar da página">${esc(q?q.texto:'')}</textarea>
+    <textarea id="ftexto" placeholder="Toque e segure aqui dentro, escolha Preenchimento automático e depois Escanear texto — a câmera lê a página. Ou digite o trecho.">${esc(q?q.texto:'')}</textarea>
     <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap">
       <button id="barrumar" style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--caneta);border-bottom:1px solid var(--regua);padding-bottom:3px">Arrumar quebras</button>
     </div>
@@ -1550,9 +1648,10 @@ document.getElementById('arquivoJson').addEventListener('change', async e => {
   }
 });
 
+let buscaTimer = null;
 document.getElementById('busca').addEventListener('input', e => {
-  busca = e.target.value;
-  desenhar();
+  clearTimeout(buscaTimer);
+  buscaTimer = setTimeout(() => { busca = e.target.value; estanteLote = 120; desenhar(); }, 180);
 });
 document.getElementById('ordem').addEventListener('change', e => {
   ordem = e.target.value;
