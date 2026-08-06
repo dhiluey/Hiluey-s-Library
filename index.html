@@ -483,6 +483,7 @@ function apagarCapa(livroId){
 }
 
 /* ---------------- nuvem (OneDrive) ---------------- */
+const VERSAO = '2026-08-05-a';
 const CLIENT_ID = '0fcbf4d6-c065-4c91-bc54-56f3e358f1a6';
 const CHAVE_GOOGLE = 'AIzaSyAhR6xIQbFYY-gZ9mobl_valT0b7xE42FU';   // Books API, restrita ao domínio do site
 const ESCOPOS = ['User.Read', 'Files.ReadWrite.AppFolder'];
@@ -1107,30 +1108,47 @@ function pareceOMesmo(livro, achado){
   return true;
 }
 
-// preenchimento silencioso do total de páginas: acontece uma vez, para livros
-// cadastrados antes de o campo existir. Sem botão e sem aviso — é situação atípica.
+// migração: preenche o total de páginas de livros cadastrados antes de o campo existir.
+// Some do código assim que rodar.
 const MARCA_PAGINAS = 'hl-paginas-em';
 const SEMANA = 7 * 86400000;
 
-async function completarPaginas(){
-  if(!navigator.onLine) return;
-  const ultima = parseInt(localStorage.getItem(MARCA_PAGINAS) || '0', 10);
-  if(Date.now() - ultima < SEMANA) return;
+async function completarPaginas(manual){
+  const el = document.getElementById('fdiag');
+  const diga = t => { if(el) el.textContent = t; console.log('[paginas]', t); };
+
+  if(!manual){
+    if(!navigator.onLine) return;
+    const ultima = parseInt(localStorage.getItem(MARCA_PAGINAS) || '0', 10);
+    if(Date.now() - ultima < SEMANA) return;
+  }
 
   const alvos = dados.livros.filter(l => !l.paginas);
-  if(!alvos.length){ localStorage.setItem(MARCA_PAGINAS, String(Date.now())); return; }
+  if(!alvos.length){ diga('Nenhum livro sem total de páginas.'); return; }
 
-  let mudou = false;
+  let feitos = 0;
+  const relato = [];
   for(const l of alvos){
+    const termo = [partesTitulo(l.titulo).principal, l.autor].filter(Boolean).join(' ');
+    diga(`Procurando: ${l.titulo}`);
     try{
-      const achados = await consultar([partesTitulo(l.titulo).principal, l.autor].filter(Boolean).join(' '));
-      const bom = achados.find(v => v.paginas && pareceOMesmo(l, v));
-      if(bom){ l.paginas = bom.paginas; tocar(l); mudou = true; }
-    }catch(e){ /* sem resultado é aceitável: fica em branco */ }
+      const achados = await consultar(termo);
+      const comPaginas = achados.filter(v => v.paginas);
+      const bom = comPaginas.find(v => pareceOMesmo(l, v));
+      if(bom){
+        l.paginas = bom.paginas; tocar(l); feitos++;
+        relato.push(`${l.titulo}: ${bom.paginas}`);
+      }else{
+        relato.push(`${l.titulo}: ${achados.length} achados, ${comPaginas.length} com páginas, nenhum bateu`);
+      }
+    }catch(e){
+      relato.push(`${l.titulo}: falhou (${(e && e.message) || e})`);
+    }
     await new Promise(r => setTimeout(r, 400));
   }
   localStorage.setItem(MARCA_PAGINAS, String(Date.now()));
-  if(mudou){ await salvar(); desenhar(); }
+  if(feitos){ await salvar(); desenhar(); }
+  diga(relato.join(' | '));
 }
 
 async function buscarLivro(){
@@ -1512,10 +1530,13 @@ function folhaConta(){
 
     <label style="margin-top:22px">Arquivo</label>
     <div class="acoes" style="margin-top:6px">
+      <button id="fcompletar">Completar páginas</button>
       <button id="ftudo">PDF de tudo</button>
       <button data-acao="backup">Salvar cópia</button>
       <button id="fimportar">Restaurar de um arquivo</button>
     </div>
+    <div class="status" id="fdiag" style="white-space:pre-wrap"></div>
+    <p style="font-size:11px;color:var(--tinta-suave);margin:10px 0 0;font-family:var(--mono)">versão ${VERSAO}</p>
 
     <div class="rodape">
       <button class="cancelar" id="fcancel">Fechar</button>
@@ -1525,6 +1546,7 @@ function folhaConta(){
   document.getElementById('fcancel').onclick = fechar;
   document.getElementById('fimportar').onclick = () => document.getElementById('arquivoJson').click();
   document.getElementById('ftudo').onclick = async () => { fechar(); await gerarPDFCompleto(); };
+  document.getElementById('fcompletar').onclick = () => completarPaginas(true);
   const bEntrar = document.getElementById('fentrar'); if(bEntrar) bEntrar.onclick = entrar;
   const bSair = document.getElementById('fsair'); if(bSair) bSair.onclick = sair;
   const bAgora = document.getElementById('fagora'); if(bAgora) bAgora.onclick = async () => { fechar(); await empurrar(); };
@@ -1621,7 +1643,7 @@ if('serviceWorker' in navigator){
   await carregar();
   desenhar();
   await iniciarNuvem();
-  setTimeout(completarPaginas, 4000);
+  setTimeout(() => completarPaginas(false), 4000);
 })();
 </script>
 </body>
